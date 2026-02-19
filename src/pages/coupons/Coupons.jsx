@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiSearch, FiFilter, FiX, FiEdit2, FiTrash2, FiEye, FiPlus, FiRefreshCw, FiList } from 'react-icons/fi'
+import { FiSearch, FiFilter, FiX, FiEdit2, FiTrash2, FiEye, FiPlus, FiList } from 'react-icons/fi'
 import { useGetAllCoupons, useDeleteCoupon } from '../../hooks/useCoupons'
 import Pagination from '../../components/common/Pagination'
 import StatusBadge from '../../components/common/StatusBadge'
@@ -12,7 +12,6 @@ const Coupons = () => {
     const [currentPage, setCurrentPage] = useState(1)
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
-    const [discountTypeFilter, setDiscountTypeFilter] = useState('all')
     const [selectedCoupons, setSelectedCoupons] = useState([])
     const [deleteModal, setDeleteModal] = useState({ show: false, couponId: null })
 
@@ -40,7 +39,6 @@ const Coupons = () => {
     const clearSearch = () => {
         setSearchTerm('')
         setStatusFilter('all')
-        setDiscountTypeFilter('all')
         setCurrentPage(1)
         refetch()
     }
@@ -72,7 +70,7 @@ const Coupons = () => {
             setDeleteModal({ show: false, couponId: null })
             refetch()
             toast.success('Coupon deleted successfully')
-        } catch (error) {
+        } catch {
             toast.error('Failed to delete coupon')
         }
     }
@@ -92,7 +90,7 @@ const Coupons = () => {
             setSelectedCoupons([])
             refetch()
             toast.success(`${selectedCoupons.length} coupons deleted successfully`)
-        } catch (error) {
+        } catch {
             toast.error('Failed to delete some coupons')
         }
     }
@@ -199,30 +197,12 @@ const Coupons = () => {
                         </select>
                     </div>
 
-                    {/* Discount Type Filter */}
-                    <div className="relative">
-                        <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-3 w-3" />
-                        <select
-                            value={discountTypeFilter}
-                            onChange={(e) => {
-                                setDiscountTypeFilter(e.target.value)
-                                setCurrentPage(1)
-                                refetch()
-                            }}
-                            className="border border-gray-300 rounded-lg pl-8 pr-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary appearance-none bg-white text-xs"
-                        >
-                            <option value="all">Type: All</option>
-                            <option value="percentage">Percentage</option>
-                            <option value="fixed">Fixed Amount</option>
-                        </select>
-                    </div>
-
                     {/* Rows per page */}
                     <div className="relative">
                         <FiList className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-3 w-3" />
                         <select
                             value={10}
-                            onChange={(e) => { /* Handle rows per page */ }}
+                            onChange={() => { /* Handle rows per page */ }}
                             className="border border-gray-300 rounded-lg pl-8 pr-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary appearance-none bg-white text-xs"
                         >
                             <option value={5}>Rows: 5</option>

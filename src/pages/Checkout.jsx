@@ -109,39 +109,44 @@ const Checkout = () => {
     return digits
   }
 
-  const [payerPhone, setPayerPhone] = useState('')
-  const [payerEmail, setPayerEmail] = useState('')
-
-  const [orderId, setOrderId] = useState(null)
-  const [invoiceId, setInvoiceId] = useState(null)
-  const [receiptId, setReceiptId] = useState(null)
-
-  const canShowAddress = orderType === 'delivery'
-  const { data: packagingPublic } = useGetActivePackagingPublic()
-  const packagingOptions = packagingPublic?.data?.data?.packaging || packagingPublic?.data?.packaging || []
-  const canShowPackaging = (packagingOptions || []).length > 0
-
-  const [selectedPackagingId, setSelectedPackagingId] = useState(null)
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await cartAPI.getCart()
-        setCart(res.data?.data)
-        // If no items, clear persisted coupon
-        const items = res.data?.data?.items || []
-        if (!items || items.length === 0) {
-          try { localStorage.removeItem('appliedCoupon') } catch {}
-          setCoupon(null)
+    const [payerPhone, setPayerPhone] = useState('')
+    const [payerEmail, setPayerEmail] = useState('')
+  
+    const [orderId, setOrderId] = useState(null)
+    const [invoiceId, setInvoiceId] = useState(null)
+  
+    const canShowAddress = orderType === 'delivery'
+    const { data: packagingPublic } = useGetActivePackagingPublic()
+    
+    // Memoize packaging options to stabilize dependencies
+    const packagingOptions = useMemo(() => 
+      packagingPublic?.data?.data?.packaging || packagingPublic?.data?.packaging || [],
+      [packagingPublic]
+    )
+    
+    const canShowPackaging = (packagingOptions || []).length > 0
+  
+    const [selectedPackagingId, setSelectedPackagingId] = useState(null)
+  
+    useEffect(() => {
+      const load = async () => {
+        try {
+          const res = await cartAPI.getCart()
+          setCart(res.data?.data)
+          // If no items, clear persisted coupon
+          const items = res.data?.data?.items || []
+          if (!items || items.length === 0) {
+            try { localStorage.removeItem('appliedCoupon') } catch (err) { console.error('Storage error:', err) }
+            setCoupon(null)
+          }
+        } catch {
+          toast.error('Failed to load cart')
+        } finally {
+          setLoading(false)
         }
-      } catch (e) {
-        toast.error('Failed to load cart')
-      } finally {
-        setLoading(false)
       }
-    }
-    load()
-  }, [])
+      load()
+    }, [])
 
   // Cart protection - redirect to cart if empty
   useEffect(() => {

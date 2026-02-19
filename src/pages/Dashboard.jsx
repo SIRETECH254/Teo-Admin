@@ -10,7 +10,7 @@ const Dashboard = () => {
     
     const { data: overviewRes, isLoading: isLoadingOverview } = useOverviewStats()
 
-    const { data: analyticsRes, isLoading: isLoadingAnalytics } = useAnalytics({ range: selectedRange })
+    const { data: analyticsRes } = useAnalytics({ range: selectedRange })
 
     const [recentOrders, setRecentOrders] = useState([])
 
@@ -19,7 +19,7 @@ const Dashboard = () => {
         try {
             const res = await orderAPI.getOrders({ page: 1, limit: 5 })
             setRecentOrders(res.data?.data?.orders || [])
-        } catch (_) {
+        } catch {
             setRecentOrders([])
         }
     }, [])

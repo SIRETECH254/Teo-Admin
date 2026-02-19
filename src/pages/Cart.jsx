@@ -15,7 +15,6 @@ const Cart = () => {
 
     // Coupon functionality
     const validateCoupon = useValidateCoupon()
-    const applyCoupon = useApplyCoupon()
 
     // Coupon and modal state
     const [couponCode, setCouponCode] = useState('')
@@ -80,16 +79,16 @@ const Cart = () => {
 
         try {
             await updateCartItem.mutateAsync({ skuId, quantity: newQuantity })
-        } catch (error) {
-            console.error('Error updating quantity:', error)
+        } catch (err) {
+            console.error('Error updating quantity:', err)
         }
     }, [updateCartItem])
 
     const handleRemoveItem = useCallback(async (skuId) => {
         try {
             await removeFromCart.mutateAsync(skuId)
-        } catch (error) {
-            console.error('Error removing item:', error)
+        } catch (err) {
+            console.error('Error removing item:', err)
         }
     }, [removeFromCart])
 
@@ -103,8 +102,8 @@ const Cart = () => {
             setShowClearModal(false)
             setAppliedCoupon(null) // Clear applied coupon as well
             setCouponCode('')
-        } catch (error) {
-            console.error('Error clearing cart:', error)
+        } catch (err) {
+            console.error('Error clearing cart:', err)
         }
     }, [clearCart])
 
@@ -137,7 +136,7 @@ const Cart = () => {
                     discountValue: result.data.data.coupon.discountValue
                 }
                 setAppliedCoupon(applied)
-                try { localStorage.setItem('appliedCoupon', JSON.stringify(applied)) } catch {}
+                try { localStorage.setItem('appliedCoupon', JSON.stringify(applied)) } catch (e) { console.error('Storage error:', e) }
                 toast.success(`Coupon "${result.data.data.coupon.name}" applied successfully!`)
                 setCouponCode('')
 
@@ -145,17 +144,17 @@ const Cart = () => {
                 toast.error(result.data.message)
             }
             
-        } catch (error) {
-            console.error('Error applying coupon:', error)
+        } catch (err) {
+            console.error('Error applying coupon:', err)
             toast.error('Failed to apply coupon. Please try again.')
         } finally {
             setIsApplyingCoupon(false)
         }
-    }, [couponCode, validateCoupon, calculateSubtotal, isApplyingCoupon, cartItems])
+    }, [couponCode, validateCoupon, calculateSubtotal])
 
     const handleRemoveCoupon = useCallback(() => {
         setAppliedCoupon(null)
-        try { localStorage.removeItem('appliedCoupon') } catch {}
+        try { localStorage.removeItem('appliedCoupon') } catch (e) { console.error('Storage error:', e) }
         toast.success('Coupon removed successfully')
     }, [])
 

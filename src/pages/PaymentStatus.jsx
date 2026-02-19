@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { io } from 'socket.io-client'
-import { paymentAPI, orderAPI, cartAPI } from '../utils/api'
+import { paymentAPI, orderAPI } from '../utils/api'
 import toast from 'react-hot-toast'
 import { FiShoppingCart } from 'react-icons/fi'
 
@@ -43,12 +43,12 @@ const PaymentStatus = () => {
       timeoutRef.current = null
     }
     if (socketRef.current) {
-      try { socketRef.current.disconnect() } catch {}
+      try { socketRef.current.disconnect() } catch (err) { console.error('Socket disconnect error:', err) }
       socketRef.current = null
     }
   }
 
-  const startPaymentTracking = (trackingPaymentId = paymentId, trackingMethod = method) => {
+  const startPaymentTracking = useCallback((trackingPaymentId = paymentId, trackingMethod = method) => {
     clearPaymentTimers()
 
     // Only connect socket for M-Pesa and Paystack
@@ -489,7 +489,7 @@ const PaymentStatus = () => {
     }, 60 * 1000)
     }
 
-  }
+  }, [paymentId, method, checkoutRequestId, orderId, provider])
 
   // Load order data and initialize payment tracking based on method
   useEffect(() => {
@@ -624,7 +624,7 @@ const PaymentStatus = () => {
     return () => {
       clearPaymentTimers()
     }
-  }, [orderId, method, paymentId, errorParam])
+  }, [orderId, method, paymentId, errorParam, provider, startPaymentTracking])
 
   const handleRetry = async () => {
     // Determine what to retry based on method

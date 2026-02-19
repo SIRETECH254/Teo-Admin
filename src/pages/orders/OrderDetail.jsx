@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { orderAPI, invoiceAPI } from '../../utils/api'
+import { orderAPI } from '../../utils/api'
 import OrderStatusBadge from '../../components/common/OrderStatusBadge'
 import PaymentStatusBadge from '../../components/common/PaymentStatusBadge'
 import { FiArrowLeft, FiPrinter, FiMoreVertical, FiUser, FiCreditCard, FiDownload, FiCheckCircle, FiBox, FiTruck, FiCalendar, FiMapPin } from 'react-icons/fi'
@@ -16,21 +16,21 @@ const OrderDetail = () => {
   const [order, setOrder] = useState(null)
   const [status, setStatus] = useState('PLACED')
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true)
       const res = await orderAPI.getOrderById(id)
       const ord = res.data?.data?.order
       setOrder(ord)
       setStatus(ord?.status || 'PLACED')
-    } catch (e) {
+    } catch {
       toast.error('Failed to load order')
     } finally {
       setLoading(false)
     }
-  }
+  }, [id])
 
-  useEffect(() => { load() }, [id])
+  useEffect(() => { load() }, [load])
 
   const handleUpdateStatus = async () => {
     try {
@@ -38,7 +38,7 @@ const OrderDetail = () => {
       await orderAPI.updateOrderStatus(id, status)
       toast.success('Order status updated')
       await load()
-    } catch (e) {
+    } catch {
       toast.error('Failed to update status')
     } finally {
       setSaving(false)
@@ -53,7 +53,6 @@ const OrderDetail = () => {
   const orderTypeLabel = order?.type ? (order.type.charAt(0).toUpperCase() + order.type.slice(1)) : '-'
   const locationLabel = order?.location === 'in_shop' ? 'In Shop' : order?.location === 'away' ? 'Away' : '-'
   const fulfillmentLabel = order?.timing?.isScheduled ? `Scheduled: ${order?.timing?.scheduledAt ? new Date(order.timing.scheduledAt).toLocaleString() : ''}` : 'Now'
-  const packagingName = order?.metadata?.packaging?.name
   const statusOrder = ['PLACED','CONFIRMED','PACKED','OUT_FOR_DELIVERY','DELIVERED','CANCELLED','REFUNDED']
   const currentStatusIndex = statusOrder.indexOf(order?.status || 'PLACED')
   const timelineBase = [

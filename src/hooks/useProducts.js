@@ -203,7 +203,7 @@ export const useUpdateSKU = () => {
             const response = await productAPI.updateSKU(productId, skuId, skuData)
             return response.data
         },
-        onSuccess: (data) => {
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
         },

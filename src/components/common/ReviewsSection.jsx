@@ -9,7 +9,7 @@ import { FiMessageSquare, FiPlus } from 'react-icons/fi'
 
 
 const ReviewsSection = ({ productId, className = '' }) => {
-    const { user, isAuthenticated } = useAuth()
+    const { isAuthenticated } = useAuth()
     const [showReviewForm, setShowReviewForm] = useState(false)
     const [currentPage, setCurrentPage] = useState(1)
 
@@ -57,12 +57,12 @@ const ReviewsSection = ({ productId, className = '' }) => {
         }
     }
 
-    const handleReviewUpdate = (reviewId, updatedData) => {
+    const handleReviewUpdate = () => {
         // The review will be automatically updated via query invalidation
         refetch()
     }
 
-    const handleReviewDelete = (reviewId) => {
+    const handleReviewDelete = () => {
         // The review will be automatically removed via query invalidation
         refetch()
     }
