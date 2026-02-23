@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { cartAPI, orderAPI, paymentAPI } from '../utils/api'
+import { cartAPI, orderAPI, paymentAPI } from '../api'
 import { useGetActivePackagingPublic } from '../hooks/usePackaging'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'

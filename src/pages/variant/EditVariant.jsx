@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { FiEdit, FiPlus, FiTrash2, FiLoader, FiAlertTriangle, FiX } from 'react-icons/fi'
 import { useGetVariantById, useUpdateVariant } from '../../hooks/useVariants'
-import { variantAPI } from '../../utils/api'
+import { variantAPI } from '../../api'
 import { variantSchema } from '../../utils/validation'
 import toast from 'react-hot-toast'
 

@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import { useOverviewStats, useAnalytics } from '../hooks/useStats'
-import { orderAPI } from '../utils/api'
+import { orderAPI } from '../api'
 import { FiDollarSign, FiShoppingBag, FiUsers, FiActivity, FiArrowUpRight, FiArrowDownRight, FiMail, FiChevronDown } from 'react-icons/fi'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 

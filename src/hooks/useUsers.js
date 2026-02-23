@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { userAPI } from '../utils/api'
+import { userAPI } from '../api'
 import toast from 'react-hot-toast'
 
 // Get all users (admin)

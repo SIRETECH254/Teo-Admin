@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { variantAPI } from '../utils/api'
+import { variantAPI } from '../api'
 
 
 export const useCreateVariant = () => {

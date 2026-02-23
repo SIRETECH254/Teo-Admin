@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { storeConfigAPI } from '../utils/api'
+import { storeConfigAPI } from '../api'
 import toast from 'react-hot-toast'
 
 // Get store configuration

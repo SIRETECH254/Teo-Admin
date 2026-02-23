@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { couponAPI } from '../utils/api.js'
+import { couponAPI } from '../api'
 import toast from 'react-hot-toast'
 
 

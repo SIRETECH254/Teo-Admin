@@ -1,70 +1,8 @@
-import axios from 'axios'
-
-const API_BASE_URL = 'https://teo-kicks.onrender.com/api'
-
-// Create axios instance
-const api = axios.create({
-    baseURL: API_BASE_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    },
-})
-
-// Request interceptor to add auth token
-api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('accessToken')
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`
-        }
-
-        // Handle FormData - don't set Content-Type, let browser set it
-        if (config.data instanceof FormData) {
-            delete config.headers['Content-Type']
-        }
-
-        return config
-    },
-    (error) => {
-        return Promise.reject(error)
-    }
-)
-
-// Response interceptor to handle token refresh
-api.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        const originalRequest = error.config
-
-        if (error.response?.status === 401 && !originalRequest._retry) {
-            originalRequest._retry = true
-
-            const refreshToken = localStorage.getItem('refreshToken')
-            if (refreshToken) {
-                try {
-                    const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-                        refreshToken
-                    })
-
-                    const { accessToken } = response.data.data
-                    localStorage.setItem('accessToken', accessToken)
-
-                    originalRequest.headers.Authorization = `Bearer ${accessToken}`
-                    return api(originalRequest)
-                } catch (refreshError) {
-                    // Refresh token failed; keep existing storage to allow manual retry or background validation.
-                    // Do not redirect here; let the app decide based on guarded routes.
-                    return Promise.reject(refreshError)
-                }
-            }
-        }
-
-        return Promise.reject(error)
-    }
-)
+import api from './config'
 
 // Auth API calls
 export const authAPI = {
+
     // Login
     login: (credentials) => api.post('/auth/login', credentials),
     
@@ -91,12 +29,18 @@ export const authAPI = {
 
     // Google OAuth
     googleAuth: () => api.get('/auth/google'),
+
+    // Google Auth Callback
     googleAuthCallback: (codeData) => api.post('/auth/google/callback', codeData),
+
+    // Google Auth Mobile
     googleAuthMobile: (idTokenData) => api.post('/auth/google/mobile', idTokenData),
+    
 }
 
 // User API calls
 export const userAPI = {
+
     // Get user profile
     getProfile: () => api.get('/users/profile'),
     
@@ -120,10 +64,12 @@ export const userAPI = {
 
     // Admin: Create customer (password = phone)
     adminCreateCustomer: (data) => api.post('/users/admin-create', data),
+    
 }
 
 // Product API calls
 export const productAPI = {
+
     // Get all products
     getAllProducts: (params) => api.get('/products', { params }),
     
@@ -158,10 +104,12 @@ export const productAPI = {
     
     // Generate SKUs
     generateSKUs: (productId) => api.post(`/products/${productId}/generate-skus`),
+    
 }
 
 // Category API calls
 export const categoryAPI = {
+
     // Get all categories
     getAllCategories: (params) => api.get('/categories', { params }),
     
@@ -182,10 +130,12 @@ export const categoryAPI = {
     
     // Get categories with products
     getCategoriesWithProducts: () => api.get('/categories/with-products'),
+    
 }
 
 // Brand API calls
 export const brandAPI = {
+
     // Get all brands
     getAllBrands: (params) => api.get('/brands', { params }),
     
@@ -203,10 +153,12 @@ export const brandAPI = {
     
     // Get popular brands
     getPopularBrands: (params) => api.get('/brands/popular', { params }),
+    
 }
 
 // Tag API calls
 export const tagAPI = {
+
     // Get all tags
     getAllTags: (params) => api.get('/tags', { params }),
     
@@ -227,10 +179,12 @@ export const tagAPI = {
     
     // Get popular tags
     getPopularTags: (params) => api.get('/tags/popular', { params }),
+    
 }
 
 // Collection API calls
 export const collectionAPI = {
+
     // Get all collections
     getAllCollections: (params) => api.get('/collections', { params }),
 
@@ -251,10 +205,12 @@ export const collectionAPI = {
 
     // Remove product from collection
     removeProduct: (id, productId) => api.delete(`/collections/${id}/products/${productId}`),
+    
 }
 
 // Variant API calls
 export const variantAPI = {
+
     // Get all variants
     getAllVariants: (params) => api.get('/variants', { params }),
 
@@ -281,10 +237,12 @@ export const variantAPI = {
 
     // Remove option from variant
     removeOption: (variantId, optionId) => api.delete(`/variants/${variantId}/options/${optionId}`),
+    
 }
 
 // Cart API calls
 export const cartAPI = {
+
     // Get user's cart
     getCart: () => api.get('/cart'),
     
@@ -295,67 +253,115 @@ export const cartAPI = {
     updateCartItem: (skuId, quantity) => api.put(`/cart/items/${skuId}`, { quantity }),
     
     // Remove item from cart
-    removeFromCart: (skuId) => api.delete(`/cart/items/${skuId}`),
+    removeFromCart: (skuId) => api.delete('/cart/items/' + skuId),
     
     // Clear cart
     clearCart: () => api.delete('/cart/clear'),
     
     // Validate cart
     validateCart: () => api.get('/cart/validate'),
+    
 }
-
 
 // Checkout APIs
 export const orderAPI = {
+
+    // Create a new order
     createOrder: (payload) => api.post('/orders', payload),
+
+    // Get all orders
     getOrders: (params) => api.get('/orders', { params }),
+
+    // Get order by ID
     getOrderById: (orderId) => api.get(`/orders/${orderId}`),
+
+    // Update order status
     updateOrderStatus: (orderId, status) => api.patch(`/orders/${orderId}/status`, { status }),
+
+    // Delete order
     deleteOrder: (orderId) => api.delete(`/orders/${orderId}`),
+    
 }
 
-
+// Invoice API calls
 export const invoiceAPI = {
+
+    // Get invoice by ID
     getInvoiceById: (invoiceId) => api.get(`/invoices/${invoiceId}`),
+    
 }
 
-
+// Payment API calls
 export const paymentAPI = {
+
+    // Pay invoice
     payInvoice: (data) => api.post('/payments/pay-invoice', data),
+
+    // Get payment by ID
     getPaymentById: (paymentId) => api.get(`/payments/${paymentId}`),
+
+    // Mark cash as collected
     markCashCollected: (paymentId, amount) => api.patch(`/payments/${paymentId}/cash`, { amount }),
+
+    // Get M-Pesa payment status
     getMpesaStatus: (paymentId) => api.get(`/payments/${paymentId}/mpesa-status`),
+
+    // Query M-Pesa status by checkout request ID
     queryMpesaByCheckoutId: (checkoutRequestId) => api.get(`/payments/mpesa-status/${checkoutRequestId}`),
+    
 }
 
-
+// Receipt API calls
 export const receiptAPI = {
+
+    // Get receipt by ID
     getReceiptById: (receiptId) => api.get(`/receipts/${receiptId}`),
+    
 }
 
 // Stats API calls (Admin)
 export const statsAPI = {
+
+    // Get store overview stats
     getOverview: () => api.get('/stats/overview'),
+
+    // Get store analytics
     getAnalytics: (params) => api.get('/stats/analytics', { params }),
+    
 }
 
 // Packaging API calls
 export const packagingAPI = {
-    // Admin list/search/filter/sort
+
+    // Get all packaging options
     getPackaging: (params) => api.get('/packaging', { params }),
+
+    // Get packaging by ID
     getById: (id) => api.get(`/packaging/${id}`),
+
+    // Create packaging option
     create: (data) => api.post('/packaging', data),
+
+    // Update packaging option
     update: (id, data) => api.patch(`/packaging/${id}`, data),
+
+    // Delete packaging option
     remove: (id) => api.delete(`/packaging/${id}`),
+
+    // Set default packaging
     setDefault: (id) => api.patch(`/packaging/${id}/default`),
 
-    // Public for checkout
+    // Get active packaging for public view
     getActivePublic: () => api.get('/packaging/public'),
+
+    // Get default packaging for public view
     getDefaultPublic: () => api.get('/packaging/public/default'),
+    
 }
 
 // Review API calls
 export const reviewAPI = {
+
     // Get reviews for a product
     getProductReviews: (productId, params) => api.get(`/reviews/products/${productId}`, { params }),
     
@@ -376,10 +382,12 @@ export const reviewAPI = {
     
     // Admin: Approve/Reject review
     approveReview: (reviewId, isApproved) => api.patch(`/reviews/${reviewId}/approve`, { isApproved }),
+    
 }
 
 // Coupon API calls
 export const couponAPI = {
+
     // Get all coupons (admin only)
     getAllCoupons: (params) => api.get('/coupons', { params }),
 
@@ -406,10 +414,12 @@ export const couponAPI = {
 
     // Generate new coupon code (admin only)
     generateNewCode: (couponId) => api.patch(`/coupons/${couponId}/generate-code`),
+    
 }
 
 // Store Configuration API calls
 export const storeConfigAPI = {
+
     // Get store configuration
     getStoreConfig: () => api.get('/store-config'),
 
@@ -427,6 +437,7 @@ export const storeConfigAPI = {
 
     // Initialize default store configuration (admin only)
     initStoreConfig: () => api.post('/store-config/init'),
+    
 }
 
-export default api 
+export default api

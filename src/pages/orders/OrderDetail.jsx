@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { orderAPI } from '../../utils/api'
+import { orderAPI } from '../../api'
 import OrderStatusBadge from '../../components/common/OrderStatusBadge'
 import PaymentStatusBadge from '../../components/common/PaymentStatusBadge'
 import { FiArrowLeft, FiPrinter, FiMoreVertical, FiUser, FiCreditCard, FiDownload, FiCheckCircle, FiBox, FiTruck, FiCalendar, FiMapPin } from 'react-icons/fi'

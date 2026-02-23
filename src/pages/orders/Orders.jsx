@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { orderAPI } from '../../utils/api'
+import { orderAPI } from '../../api'
 import { FiSearch, FiX, FiFilter, FiList, FiAlertTriangle, FiEye, FiTrash2, FiTag } from 'react-icons/fi'
 import Pagination from '../../components/common/Pagination'
 import OrderStatusBadge from '../../components/common/OrderStatusBadge'

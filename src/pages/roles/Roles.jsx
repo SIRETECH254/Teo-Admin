@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { FiPlus, FiEdit, FiSearch, FiFilter, FiX, FiList, FiTrash2, FiAlertTriangle } from 'react-icons/fi'
 import Pagination from '../../components/common/Pagination'
-import api from '../../utils/api'
+import api from '../../api'
 
 
 const Roles = () => {

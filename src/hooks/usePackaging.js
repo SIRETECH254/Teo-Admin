@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { packagingAPI } from '../utils/api'
+import { packagingAPI } from '../api'
 import toast from 'react-hot-toast'
 
 

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import api from '../utils/api'
+import api from '../api'
 
 // Simple roles fetcher for filters
 export const useGetRoles = (params = {}) => {

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { cartAPI } from '../utils/api'
+import { cartAPI } from '../api'
 import toast from 'react-hot-toast'
 
 // Get user's cart

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { reviewAPI } from '../utils/api.js'
+import { reviewAPI } from '../api'
 import toast from 'react-hot-toast'
 
 // Get reviews for a product

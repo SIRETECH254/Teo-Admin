@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { userAPI } from '../../utils/api'
+import { userAPI } from '../../api'
 
 
 const AddCustomer = () => {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { io } from 'socket.io-client'
-import { paymentAPI, orderAPI } from '../utils/api'
+import { paymentAPI, orderAPI } from '../api'
 import toast from 'react-hot-toast'
 import { FiShoppingCart } from 'react-icons/fi'
 

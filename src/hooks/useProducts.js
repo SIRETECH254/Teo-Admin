@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { productAPI } from '../utils/api'
+import { productAPI } from '../api'
 import toast from 'react-hot-toast'
 
 // Get all products

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { FiMapPin, FiPlus, FiEdit, FiTrash2, FiArrowLeft, FiHome, FiBriefcase, FiStar, FiX, FiAlertTriangle } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 import AddressAutocomplete from '../../components/common/AddressAutocomplete'
-import api from '../../utils/api'
+import api from '../../api'
 
 const Address = () => {
   const navigate = useNavigate()

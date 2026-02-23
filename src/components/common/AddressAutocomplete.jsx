@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { FiSearch } from 'react-icons/fi'
-import api from '../../utils/api'
+import api from '../../api'
 
 
 const AddressAutocomplete = ({ onSaved }) => {
