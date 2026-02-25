@@ -111,6 +111,43 @@ Authorization: Bearer <accessToken>
   }
   ```
 
+#### Get Current User
+- **Endpoint:** `GET /auth/me`
+- **Description:** Get current authenticated user profile
+- **Auth Required:** Yes
+
+#### Logout
+- **Endpoint:** `POST /auth/logout`
+- **Description:** Logout current user
+- **Auth Required:** Yes
+
+#### Google OAuth
+- **Endpoint:** `GET /auth/google`
+- **Description:** Initiate Google OAuth flow (redirects to Google)
+- **Auth Required:** No
+
+#### Google OAuth Callback
+- **Endpoint:** `POST /auth/google/callback`
+- **Description:** Handle Google OAuth callback with authorization code
+- **Auth Required:** No
+- **Request Body:**
+  ```json
+  {
+    "code": "authorization_code_from_google"
+  }
+  ```
+
+#### Google OAuth Mobile
+- **Endpoint:** `POST /auth/google/mobile`
+- **Description:** Handle Google OAuth with ID token (for mobile apps)
+- **Auth Required:** No
+- **Request Body:**
+  ```json
+  {
+    "idToken": "google_id_token"
+  }
+  ```
+
 ---
 
 ### User Endpoints
@@ -126,6 +163,8 @@ Authorization: Bearer <accessToken>
 - **List All Users**
   - **Endpoint:** `GET /users`
   - **Query Params:** `{ page, limit, search, role, status }`
+- **Get User by ID**
+  - **Endpoint:** `GET /users/:userId`
 - **Update User Status/Roles**
   - **Endpoint:** `PUT /users/:userId/status`
   - **Request Body:**
@@ -135,6 +174,8 @@ Authorization: Bearer <accessToken>
       "roles": ["string"]
     }
     ```
+- **Delete User**
+  - **Endpoint:** `DELETE /users/:userId`
 - **Admin Create Customer**
   - **Endpoint:** `POST /users/admin-create`
   - **Request Body:**
@@ -157,25 +198,44 @@ Authorization: Bearer <accessToken>
 - **Endpoint:** `GET /products`
 - **Query Params:** `{ page, limit, search, brand, category, status, minPrice, maxPrice }`
 
-#### Create Product
-- **Endpoint:** `POST /products`
-- **Content-Type:** `multipart/form-data`
-- **Body Fields:**
-  - `title`: string
-  - `description`: string (HTML)
-  - `shortDescription`: string
-  - `brand`: string (ID)
-  - `basePrice`: number
-  - `comparePrice`: number
-  - `status`: "draft" | "active" | "archived"
-  - `weight`: number
-  - `trackInventory`: boolean
-  - `categories`: string (JSON array of IDs)
-  - `collections`: string (JSON array of IDs)
-  - `tags`: string (JSON array of IDs)
-  - `variants`: string (JSON array of IDs)
-  - `features`: string (JSON array of strings)
-  - `images`: File[] (Multiple product images)
+#### Product Management
+- **Get All Products**
+  - **Endpoint:** `GET /products`
+  - **Query Params:** `{ page, limit, search, brand, category, status, minPrice, maxPrice }`
+- **Get Product by ID**
+  - **Endpoint:** `GET /products/:id`
+- **Create Product**
+  - **Endpoint:** `POST /products`
+  - **Content-Type:** `multipart/form-data`
+  - **Body Fields:**
+    - `title`: string
+    - `description`: string (HTML)
+    - `shortDescription`: string
+    - `brand`: string (ID)
+    - `basePrice`: number
+    - `comparePrice`: number
+    - `status`: "draft" | "active" | "archived"
+    - `weight`: number
+    - `trackInventory`: boolean
+    - `categories`: string (JSON array of IDs)
+    - `collections`: string (JSON array of IDs)
+    - `tags`: string (JSON array of IDs)
+    - `variants`: string (JSON array of IDs)
+    - `features`: string (JSON array of strings)
+    - `images`: File[] (Multiple product images)
+- **Update Product**
+  - **Endpoint:** `PUT /products/:id`
+  - **Content-Type:** `multipart/form-data`
+- **Delete Product**
+  - **Endpoint:** `DELETE /products/:id`
+- **Product Images**
+  - `POST /products/:id/images` - Upload product images
+  - `DELETE /products/:productId/images/:imageId` - Delete product image
+  - `PUT /products/:productId/images/:imageId/primary` - Set primary image
+- **Product SKUs**
+  - `PATCH /products/:productId/skus/:skuId` - Update SKU
+  - `DELETE /products/:productId/skus/:skuId` - Delete SKU
+  - `POST /products/:productId/generate-skus` - Generate SKUs
 
 ---
 
@@ -238,73 +298,143 @@ Authorization: Bearer <accessToken>
 
 ---
 
-### Variant & Inventory Endpoints
+### Category Endpoints
+
+**Base:** `/api/categories`
+
+- `GET /categories` - Get all categories
+- `GET /categories/:id` - Get category by ID
+- `POST /categories` - Create category
+- `PUT /categories/:id` - Update category
+- `DELETE /categories/:id` - Delete category
+- `GET /categories/tree` - Get category tree
+- `GET /categories/with-products` - Get categories with products
+
+### Brand Endpoints
+
+**Base:** `/api/brands`
+
+- `GET /brands` - Get all brands
+- `GET /brands/:id` - Get brand by ID
+- `POST /brands` - Create brand
+- `PUT /brands/:id` - Update brand
+- `DELETE /brands/:id` - Delete brand
+- `GET /brands/popular` - Get popular brands
+
+### Tag Endpoints
+
+**Base:** `/api/tags`
+
+- `GET /tags` - Get all tags
+- `GET /tags/:id` - Get tag by ID
+- `POST /tags` - Create tag
+- `PUT /tags/:id` - Update tag
+- `DELETE /tags/:id` - Delete tag
+- `GET /tags/type/:type` - Get tags by type
+- `GET /tags/popular` - Get popular tags
+
+### Collection Endpoints
+
+**Base:** `/api/collections`
+
+- `GET /collections` - Get all collections
+- `GET /collections/:id` - Get collection by ID
+- `POST /collections` - Create collection
+- `PUT /collections/:id` - Update collection
+- `DELETE /collections/:id` - Delete collection
+- `POST /collections/:id/products` - Add product to collection
+- `DELETE /collections/:id/products/:productId` - Remove product from collection
+
+### Variant Endpoints
 
 **Base:** `/api/variants`
 
-#### Create Variant
-- **Endpoint:** `POST /variants`
-- **Request Body:**
-  ```json
-  {
-    "name": "string (e.g., Size)",
-    "options": [
-      { "value": "string (e.g., Small)" },
-      { "value": "string (e.g., Large)" }
-    ]
-  }
-  ```
+- `GET /variants` - Get all variants
+- `GET /variants/:id` - Get variant by ID
+- `GET /variants/active` - Get active variants
+- `POST /variants` - Create variant
+- `PUT /variants/:id` - Update variant
+- `DELETE /variants/:id` - Delete variant
+- `POST /variants/:variantId/options` - Add option to variant
+- `PUT /variants/:variantId/options/:optionId` - Update variant option
+- `DELETE /variants/:variantId/options/:optionId` - Remove option from variant
 
-#### Update SKU
-- **Endpoint:** `PATCH /products/:productId/skus/:skuId`
-- **Request Body:**
-  ```json
-  {
-    "price": number,
-    "stock": number,
-    "sku": "string",
-    "isActive": boolean
-  }
-  ```
+### Cart Endpoints
+
+**Base:** `/api/cart`
+
+- `GET /cart` - Get user's cart
+- `POST /cart/add` - Add item to cart
+- `PUT /cart/items/:skuId` - Update cart item quantity
+- `DELETE /cart/items/:skuId` - Remove item from cart
+- `DELETE /cart/clear` - Clear cart
+- `GET /cart/validate` - Validate cart
 
 ---
+
+### Review Endpoints
+
+**Base:** `/api/reviews`
+
+- `GET /reviews/products/:productId` - Get reviews for a product
+- `GET /reviews/:reviewId` - Get a single review
+- `GET /reviews/user/reviews` - Get user's reviews
+- `POST /reviews/products/:productId` - Create a review
+- `PUT /reviews/:reviewId` - Update a review
+- `DELETE /reviews/:reviewId` - Delete a review
+- `PATCH /reviews/:reviewId/approve` - Approve/Reject review (admin only)
 
 ### Marketing & Tool Endpoints
 
 #### Coupons (`/api/coupons`)
-- **Validate Coupon**
-  - **Endpoint:** `POST /coupons/validate`
+
+- `GET /coupons` - Get all coupons (admin only)
+- `GET /coupons/:couponId` - Get coupon by ID
+- `GET /coupons/stats` - Get coupon statistics (admin only)
+- `POST /coupons` - Create coupon (admin only)
+- `PUT /coupons/:couponId` - Update coupon (admin only)
+- `DELETE /coupons/:couponId` - Delete coupon (admin only)
+- `POST /coupons/validate` - Validate coupon (public)
   - **Query Params:** `?orderAmount=number`
   - **Request Body:** `{ "code": "string" }`
-- **Create Coupon**
-  - **Endpoint:** `POST /coupons`
-  - **Request Body:**
-    ```json
-    {
-      "code": "string",
-      "type": "percentage" | "fixed",
-      "value": number,
-      "minOrderAmount": number,
-      "maxDiscount": number,
-      "startDate": "date",
-      "endDate": "date",
-      "usageLimit": number,
-      "isActive": boolean
-    }
-    ```
+- `POST /coupons/apply` - Apply coupon to order (protected)
+- `PATCH /coupons/:couponId/generate-code` - Generate new coupon code (admin only)
 
 #### Packaging (`/api/packaging`)
-- **Create Packaging**
-  - **Endpoint:** `POST /packaging`
-  - **Request Body:**
-    ```json
-    {
-      "name": "string",
-      "price": number,
-      "isActive": boolean,
-      "isDefault": boolean
-    }
-    ```
+
+- `GET /packaging` - Get all packaging options
+- `GET /packaging/:id` - Get packaging by ID
+- `GET /packaging/public` - Get active packaging (public)
+- `GET /packaging/public/default` - Get default packaging (public)
+- `POST /packaging` - Create packaging option
+- `PATCH /packaging/:id` - Update packaging option
+- `DELETE /packaging/:id` - Delete packaging option
+- `PATCH /packaging/:id/default` - Set default packaging
+
+### Stats Endpoints
+
+**Base:** `/api/stats`
+
+- `GET /stats/overview` - Get store overview statistics
+- `GET /stats/analytics` - Get store analytics (with optional date range params)
+
+### Store Configuration Endpoints
+
+**Base:** `/api/store-config`
+
+- `GET /store-config` - Get store configuration
+- `GET /store-config/status` - Get store configuration status
+- `POST /store-config` - Create store configuration (admin only)
+- `PUT /store-config` - Update store configuration (admin only)
+- `DELETE /store-config` - Delete store configuration (admin only)
+- `POST /store-config/init` - Initialize default store configuration (admin only)
+
+### Invoice & Receipt Endpoints
+
+**Base:** `/api/invoices` and `/api/receipts`
+
+- `GET /invoices/:invoiceId` - Get invoice by ID
+- `GET /receipts/:receiptId` - Get receipt by ID
 
 ---
 

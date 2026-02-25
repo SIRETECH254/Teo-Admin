@@ -179,18 +179,70 @@ admin/
 
 ### 5. Classifications
 **Purpose:** Organize products via various taxonomies.
-- **Categories:** Hierarchical organization.
-- **Brands:** Product manufacturers.
-- **Collections:** Curated product groups.
-- **Tags:** Descriptive labels.
+- **Categories (`/categories`):** Hierarchical organization.
+  - List (`/categories`)
+  - Add (`/categories/add`)
+  - Edit (`/categories/:id/edit`)
+- **Brands (`/brands`):** Product manufacturers.
+  - List (`/brands`)
+  - Add (`/brands/add`)
+  - Edit (`/brands/:id/edit`)
+- **Collections (`/collections`):** Curated product groups.
+  - List (`/collections`)
+  - Add (`/collections/add`)
+  - Edit (`/collections/:id/edit`)
+- **Tags (`/tags`):** Descriptive labels.
+  - List (`/tags`)
+  - Add (`/tags/add`)
+  - Edit (`/tags/:id/edit`)
 
 ### 6. Variants & Inventory
 - **Variants (`/variants`):** Manage product attributes (Size, Color).
+  - List (`/variants`)
+  - Add (`/variants/add`)
+  - Edit (`/variants/:id/edit`)
 - **Inventory (`/inventory`):** Stock level tracking and updates.
 
 ### 7. Marketing & Tools
 - **Coupons (`/coupons`):** Discount code management.
+  - List (`/coupons`)
+  - Add (`/coupons/add`)
+  - Edit (`/coupons/:couponId/edit`)
 - **Packaging (`/packaging`):** Custom shipping box/wrap options.
+  - List (`/packaging`)
+  - Add (`/packaging/add`)
+  - Edit (`/packaging/:id/edit`)
+
+### 8. Roles Management (`/roles`)
+**Purpose:** Manage user roles and permissions.
+**Sub-pages:**
+- List (`/roles`)
+- Add (`/roles/add`)
+- Edit (`/roles/:id/edit`)
+
+### 9. Analytics (`/analytics`)
+**Purpose:** Store analytics and reporting.
+
+### 10. Settings (`/settings`)
+**Purpose:** User and store configuration.
+**Sub-pages:**
+- Settings Home (`/settings`)
+- Profile (`/settings/profile`)
+- Address (`/settings/address`)
+- Change Password (`/settings/change-password`)
+- Store Configurations (`/settings/store-configurations`)
+
+### 11. Cart (`/cart`)
+**Purpose:** Shopping cart management.
+
+### 12. Checkout (`/checkout`)
+**Purpose:** Order checkout process.
+
+### 13. Payment Status (`/payment-status`)
+**Purpose:** Payment processing status page.
+
+### 14. Reviews (`/reviews`)
+**Purpose:** Product reviews management.
 
 ---
 

@@ -112,6 +112,7 @@ The `AuthContext` provides the following value:
 | `logout()` | Function | Clear session and navigate to login |
 | `initiateGoogleAuth()` | Function | Start Google OAuth flow |
 | `handleGoogleCallback(c)`| Function | Handle OAuth redirect code |
+| `googleAuthWithIdToken(idToken)` | Function | Handle Google OAuth with ID token (for mobile) |
 | `clearError()` | Function | Clear current error state |
 
 ---

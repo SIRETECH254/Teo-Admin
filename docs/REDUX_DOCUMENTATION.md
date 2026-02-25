@@ -122,21 +122,27 @@ const initialState = {
 
 ### Provider Setup
 
-The Redux Provider is set up in `src/main.jsx`:
+The Redux Provider is set up in `src/main.jsx` along with QueryClientProvider:
 
 ```javascript
 import { Provider } from 'react-redux'
 import { PersistGate } from 'redux-persist/integration/react'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { store, persistor } from './store'
+import { queryClient } from './queryClient'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <Provider store={store}>
-    <PersistGate loading={null} persistor={persistor}>
-      <App />
-    </PersistGate>
-  </Provider>
+  <QueryClientProvider client={queryClient}>
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        <App />
+      </PersistGate>
+    </Provider>
+  </QueryClientProvider>
 )
 ```
+
+**Note:** The QueryClientProvider wraps the Redux Provider, and both are required for the application to function correctly.
 
 ### Accessing State
 

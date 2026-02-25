@@ -138,13 +138,19 @@ src/
     └── useVariants.js
 ```
 
+**Note:** Some hooks still use the deprecated `cacheTime` property instead of `gcTime`. The hooks using `cacheTime` are:
+- `useUsers.js`
+- `useProducts.js`
+
+These should be updated to use `gcTime` in the future for consistency.
+
 ### Hook Naming Convention
 
 - **Query Hooks**: `useGet[Resource]` or `useGet[Resource]ById`
-  - Example: `useGetUsers`, `useGetUserById`
+  - Example: `useGetUsers`, `useGetUserById`, `useGetProducts`, `useGetProductById`
 
 - **Mutation Hooks**: `use[Action][Resource]`
-  - Example: `useCreateService`, `useUpdateRole`, `useDeleteAppointment`
+  - Example: `useCreateProduct`, `useUpdateUser`, `useDeleteCoupon`, `useCreateBrand`
 
 ---
 
@@ -459,10 +465,10 @@ Errors are logged in the mutation's `onError` callback. For user-facing errors, 
 ### Example 1: Fetching Data
 
 ```typescript
-import { useGetAllUsers } from '../hooks';
+import { useGetUsers } from '../hooks/useUsers';
 
 function UsersList() {
-  const { data, isLoading, isError, error } = useGetAllUsers({ page: 1, limit: 10 });
+  const { data, isLoading, isError, error } = useGetUsers({ page: 1, limit: 10 });
 
   if (isLoading) return <div>Loading...</div>;
   if (isError) return <div>Error: {error?.message}</div>;
@@ -480,14 +486,14 @@ function UsersList() {
 ### Example 2: Creating Data
 
 ```typescript
-import { useCreateService } from '../hooks';
+import { useCreateProduct } from '../hooks/useProducts';
 
-function CreateServiceForm() {
-  const createService = useCreateService();
+function CreateProductForm() {
+  const createProduct = useCreateProduct();
 
   const handleSubmit = async (formData) => {
     try {
-      await createService.mutateAsync(formData);
+      await createProduct.mutateAsync(formData);
       // Navigate or show success message
     } catch (error) {
       // Error is already handled in the hook
@@ -495,8 +501,8 @@ function CreateServiceForm() {
   };
 
   return (
-    <button onClick={() => handleSubmit({ name: 'Consultation' })} disabled={createService.isPending}>
-      {createService.isPending ? 'Creating...' : 'Create Service'}
+    <button onClick={() => handleSubmit(formData)} disabled={createProduct.isPending}>
+      {createProduct.isPending ? 'Creating...' : 'Create Product'}
     </button>
   );
 }
@@ -505,52 +511,53 @@ function CreateServiceForm() {
 ### Example 3: Updating Data
 
 ```typescript
-import { useRescheduleAppointment } from '../hooks';
+import { useUpdateProduct } from '../hooks/useProducts';
 
-function EditAppointment({ appointmentId }) {
-  const updateAppointment = useRescheduleAppointment();
+function EditProduct({ productId }) {
+  const updateProduct = useUpdateProduct();
 
-  const handleUpdate = async (appointmentData) => {
+  const handleUpdate = async (productData) => {
     try {
-      await updateAppointment.mutateAsync({ appointmentId, data: appointmentData });
+      await updateProduct.mutateAsync({ productId, productData });
       // Show success message
     } catch (error) {
       // Error handling
     }
   };
 
-  return <button onClick={() => handleUpdate({ date: '2026-02-01' })}>Update</button>;
+  return <button onClick={() => handleUpdate({ title: 'Updated Product' })}>Update</button>;
 }
 ```
 
 ### Example 4: Conditional Query
 
 ```typescript
-import { useGetAppointment } from '../hooks';
+import { useGetProductById } from '../hooks/useProducts';
 
-function AppointmentDetails({ appointmentId }) {
-  const { data, isLoading } = useGetAppointment(appointmentId || '');
+function ProductDetails({ productId }) {
+  const { data, isLoading } = useGetProductById(productId || '');
 
-  if (!appointmentId) return <div>No appointment selected</div>;
+  if (!productId) return <div>No product selected</div>;
   if (isLoading) return <div>Loading...</div>;
 
-  return <div>{data?.data?.appointment?.status}</div>;
+  return <div>{data?.data?.product?.title}</div>;
 }
 ```
 
 ### Example 5: Multiple Queries
 
 ```typescript
-import { useGetAppointment, useGetNotifications } from '../hooks';
+import { useGetProducts } from '../hooks/useProducts';
+import { useOverviewStats } from '../hooks/useStats';
 
-function Dashboard({ appointmentId }) {
-  const { data: appointment } = useGetAppointment(appointmentId);
-  const { data: notifications } = useGetNotifications({ page: 1, limit: 5 });
+function Dashboard() {
+  const { data: products } = useGetProducts({ page: 1, limit: 5 });
+  const { data: stats } = useOverviewStats();
 
   return (
     <div>
-      <div>Appointment Status: {appointment?.data?.appointment?.status}</div>
-      <div>Notifications: {notifications?.data?.items?.length}</div>
+      <div>Products: {products?.data?.items?.length}</div>
+      <div>Total Sales: {stats?.data?.overview?.totalSales}</div>
     </div>
   );
 }
@@ -565,15 +572,18 @@ function Dashboard({ appointmentId }) {
 TanStack Query hooks use the existing API layer (`src/api/index.js`):
 
 ```javascript
-import { appointmentAPI } from '../api';
+import { productAPI } from '../api';
 
-export const useGetAppointment = (appointmentId) => {
+export const useGetProductById = (productId) => {
   return useQuery({
-    queryKey: ['appointment', appointmentId],
+    queryKey: ['product', productId],
     queryFn: async () => {
-      const response = await appointmentAPI.getAppointment(appointmentId);
+      const response = await productAPI.getProductById(productId);
       return response.data;
     },
+    enabled: !!productId,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
   });
 };
 ```
@@ -622,124 +632,79 @@ export const useGetAppointment = (appointmentId) => {
 
 ---
 
-## Service Hooks
+## Available Hooks by Resource
 
-### useGetAllServices
+### Product Hooks (`useProducts.js`)
 
-Fetches all services with optional filtering.
+- `useGetProducts(params)` - Fetch all products with optional filtering
+- `useGetProductById(productId)` - Fetch a single product by ID
+- `useCreateProduct()` - Create a new product
+- `useUpdateProduct()` - Update an existing product
+- `useDeleteProduct()` - Delete a product
+- `useUploadProductImages()` - Upload images for a product
+- `useDeleteProductImage()` - Delete a product image
+- `useSetPrimaryImage()` - Set a product's primary image
+- `useUpdateSKU()` - Update a product SKU
+- `useDeleteSKU()` - Delete a product SKU
+- `useGenerateSKUs()` - Generate SKUs for a product
 
-```javascript
-import { useGetAllServices } from '../hooks/useServices';
+### User Hooks (`useUsers.js`)
 
-// Get all active services
-const { data, isLoading } = useGetAllServices({ status: 'active' });
+- `useGetUsers(params)` - Fetch all users (admin only)
+- `useGetUserById(userId)` - Fetch a single user by ID
+- `useUpdateUserStatus()` - Update user status/roles
+- `useDeleteUser()` - Delete a user
 
-// Get all services (admin)
-const { data } = useGetAllServices({ status: 'inactive' });
-```
+### Coupon Hooks (`useCoupons.js`)
 
-**Parameters:**
-- `params.status` - Filter by service status (replaces deprecated `isActive` boolean)
+- `useGetAllCoupons(params)` - Fetch all coupons (admin only)
+- `useGetCouponById(couponId)` - Fetch a single coupon by ID
+- `useGetCouponStats()` - Get coupon statistics
+- `useCreateCoupon()` - Create a new coupon
+- `useUpdateCoupon()` - Update an existing coupon
+- `useDeleteCoupon()` - Delete a coupon
+- `useValidateCoupon()` - Validate a coupon code (public)
+- `useApplyCoupon()` - Apply a coupon to an order
+- `useGenerateNewCode()` - Generate a new coupon code
 
-**Note:** The API expects `status` query parameter, not `isActive`. Use `status: 'active'` to get active services.
+### Category Hooks (`useCategories.js`)
 
-### useGetServicesByStaff
+- `useGetCategories(params)` - Fetch all categories
+- `useGetCategoryById(categoryId)` - Fetch a single category by ID
+- `useCreateCategory()` - Create a new category
+- `useUpdateCategory()` - Update an existing category
+- `useDeleteCategory()` - Delete a category
 
-Fetches services assigned to a specific staff member (for staff-first appointment flow).
+### Brand Hooks (`useBrands.js`)
 
-```javascript
-import { useGetServicesByStaff } from '../hooks/useServices';
+- `useGetBrands(params)` - Fetch all brands
+- `useGetBrandById(brandId)` - Fetch a single brand by ID
+- `useCreateBrand()` - Create a new brand
+- `useUpdateBrand()` - Update an existing brand
+- `useDeleteBrand()` - Delete a brand
 
-function ServiceSelector({ staffId }) {
-  const { data, isLoading } = useGetServicesByStaff(staffId);
-  const services = data?.services || [];
-  
-  return (
-    <div>
-      {services.map(service => (
-        <div key={service._id}>{service.name}</div>
-      ))}
-    </div>
-  );
-}
-```
+### Variant Hooks (`useVariants.js`)
 
-**Parameters:**
-- `staffId` - The staff member's user ID
+- `useGetVariants(params)` - Fetch all variants
+- `useGetVariantById(variantId)` - Fetch a single variant by ID
+- `useGetActiveVariants()` - Fetch only active variants
+- `useCreateVariant()` - Create a new variant
+- `useUpdateVariant()` - Update an existing variant
+- `useDeleteVariant()` - Delete a variant
 
-**Returns:**
-- `Array` - Array of services assigned to the staff member
+### Stats Hooks (`useStats.js`)
 
-**Note:** This hook is automatically disabled if `staffId` is empty.
+- `useOverviewStats()` - Fetch store overview statistics
+- `useAnalytics(params)` - Fetch analytics data with optional date range
 
----
+### Store Config Hooks (`useStoreConfig.js`)
 
-## User Hooks
-
-### useGetStaffByService
-
-Fetches staff members who provide a specific service (for service-first appointment flow).
-
-```javascript
-import { useGetStaffByService } from '../hooks/useUsers';
-
-function StaffSelector({ serviceId }) {
-  const { data, isLoading } = useGetStaffByService(serviceId);
-  const staff = data?.users || [];
-  
-  return (
-    <div>
-      {staff.map(member => (
-        <div key={member._id}>{member.firstName} {member.lastName}</div>
-      ))}
-    </div>
-  );
-}
-```
-
-**Parameters:**
-- `serviceId` - The service ID
-
-**Returns:**
-- `Array` - Array of staff members who provide the service
-
-**Note:** This hook is automatically disabled if `serviceId` is empty. Only works with single service selection.
-
----
-
-## Availability Hooks
-
-### useGetSlots
-
-Fetches available time slots for a staff member, service(s), and date.
-
-```javascript
-import { useGetSlots } from '../hooks/useAvailability';
-
-// Single service
-const { data, isLoading } = useGetSlots({
-  staffId: 'staff123',
-  serviceId: 'service456',
-  date: '2025-01-30'
-});
-
-// Multiple services
-const { data } = useGetSlots({
-  staffId: 'staff123',
-  serviceId: ['service456', 'service789'], // Array for multiple services
-  date: '2025-01-30'
-});
-```
-
-**Parameters:**
-- `params.staffId` - Staff member ID (required)
-- `params.serviceId` - Single service ID or array of service IDs (required)
-- `params.date` - Date in YYYY-MM-DD format (required)
-
-**Returns:**
-- `Array` - Array of available time slots
-
-**Note:** When multiple services are provided, the API sums their durations to calculate the total appointment duration for slot generation.
+- `useGetStoreConfig()` - Fetch store configuration
+- `useGetStoreConfigStatus()` - Fetch store configuration status
+- `useCreateStoreConfig()` - Create store configuration
+- `useUpdateStoreConfig()` - Update store configuration
+- `useDeleteStoreConfig()` - Delete store configuration
+- `useInitStoreConfig()` - Initialize default store configuration
 
 ---
 
