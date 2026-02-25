@@ -51,6 +51,7 @@ export const useCreateProduct = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             toast.success(data.message || 'Product created successfully')
+            return data
         },
         onError: (error) => {
             console.error('Create product error:', error)
@@ -98,6 +99,7 @@ export const useUpdateProduct = () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
             toast.success(data.message || 'Product updated successfully')
+            return data
         },
         onError: (error) => {
             console.error('Update product error:', error)
@@ -118,6 +120,7 @@ export const useDeleteProduct = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             toast.success(data.message || 'Product deleted successfully')
+            return data
         },
         onError: (error) => {
             console.error('Delete product error:', error)
@@ -144,6 +147,7 @@ export const useUploadProductImages = () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
             toast.success(data.message || 'Images uploaded successfully')
+            return data
         },
         onError: (error) => {
             console.error('Upload images error:', error)
@@ -165,6 +169,7 @@ export const useDeleteProductImage = () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
             toast.success(data.message || 'Image deleted successfully')
+            return data
         },
         onError: (error) => {
             console.error('Delete image error:', error)
@@ -186,6 +191,7 @@ export const useSetPrimaryImage = () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
             toast.success(data.message || 'Primary image updated successfully')
+            return data
         },
         onError: (error) => {
             console.error('Set primary image error:', error)
@@ -206,6 +212,7 @@ export const useUpdateSKU = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
+            return data
         },
         onError: (error) => {
             console.error('Update SKU error:', error)
@@ -227,6 +234,7 @@ export const useDeleteSKU = () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
             toast.success(data.message || 'SKU deleted successfully')
+            return data
         },
         onError: (error) => {
             console.error('Delete SKU error:', error)
@@ -248,6 +256,7 @@ export const useGenerateSKUs = () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
             toast.success(data.message || 'SKUs generated successfully')
+            return data
         },
         onError: (error) => {
             console.error('Generate SKUs error:', error)

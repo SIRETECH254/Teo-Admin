@@ -9,7 +9,7 @@ export const useGetProductReviews = (productId, params = {}) => {
         queryFn: async () => {
             const response = await reviewAPI.getProductReviews(productId, params)
             console.log('useGetProductReviews response:', response)
-            return response
+            return response.data
         },
         enabled: !!productId,
         staleTime: 5 * 60 * 1000, // 5 minutes
@@ -20,7 +20,10 @@ export const useGetProductReviews = (productId, params = {}) => {
 export const useGetReviewById = (reviewId) => {
     return useQuery({
         queryKey: ['reviews', 'single', reviewId],
-        queryFn: () => reviewAPI.getReviewById(reviewId),
+        queryFn: async () => {
+            const response = await reviewAPI.getReviewById(reviewId)
+            return response.data
+        },
         enabled: !!reviewId,
     })
 }
@@ -29,7 +32,10 @@ export const useGetReviewById = (reviewId) => {
 export const useGetUserReviews = (params = {}) => {
     return useQuery({
         queryKey: ['reviews', 'user', params],
-        queryFn: () => reviewAPI.getUserReviews(params),
+        queryFn: async () => {
+            const response = await reviewAPI.getUserReviews(params)
+            return response.data
+        },
         staleTime: 5 * 60 * 1000, // 5 minutes
     })
 }
@@ -39,7 +45,10 @@ export const useCreateReview = () => {
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: ({ productId, reviewData }) => reviewAPI.createReview(productId, reviewData),
+        mutationFn: async ({ productId, reviewData }) => {
+            const response = await reviewAPI.createReview(productId, reviewData)
+            return response.data
+        },
         onSuccess: (data, variables) => {
             toast.success('Review created successfully!')
             
@@ -52,6 +61,7 @@ export const useCreateReview = () => {
             queryClient.invalidateQueries({
                 queryKey: ['reviews', 'user']
             })
+            return data
         },
         onError: (error) => {
             const message = error.response?.data?.message || 'Failed to create review'
@@ -65,7 +75,10 @@ export const useUpdateReview = () => {
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: ({ reviewId, reviewData }) => reviewAPI.updateReview(reviewId, reviewData),
+        mutationFn: async ({ reviewId, reviewData }) => {
+            const response = await reviewAPI.updateReview(reviewId, reviewData)
+            return response.data
+        },
         onSuccess: (data, variables) => {
             toast.success('Review updated successfully!')
             
@@ -79,6 +92,7 @@ export const useUpdateReview = () => {
                 ['reviews', 'single', variables.reviewId],
                 data
             )
+            return data
         },
         onError: (error) => {
             const message = error.response?.data?.message || 'Failed to update review'
@@ -92,7 +106,10 @@ export const useDeleteReview = () => {
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: (reviewId) => reviewAPI.deleteReview(reviewId),
+        mutationFn: async (reviewId) => {
+            const response = await reviewAPI.deleteReview(reviewId)
+            return response.data
+        },
         onSuccess: (data, reviewId) => {
             toast.success('Review deleted successfully!')
             
@@ -105,6 +122,7 @@ export const useDeleteReview = () => {
             queryClient.removeQueries({
                 queryKey: ['reviews', 'single', reviewId]
             })
+            return data
         },
         onError: (error) => {
             const message = error.response?.data?.message || 'Failed to delete review'
@@ -118,7 +136,10 @@ export const useApproveReview = () => {
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: ({ reviewId, isApproved }) => reviewAPI.approveReview(reviewId, isApproved),
+        mutationFn: async ({ reviewId, isApproved }) => {
+            const response = await reviewAPI.approveReview(reviewId, isApproved)
+            return response.data
+        },
         onSuccess: (data, variables) => {
             const action = variables.isApproved ? 'approved' : 'rejected'
             toast.success(`Review ${action} successfully!`)
@@ -127,6 +148,7 @@ export const useApproveReview = () => {
             queryClient.invalidateQueries({
                 queryKey: ['reviews']
             })
+            return data
         },
         onError: (error) => {
             const message = error.response?.data?.message || 'Failed to update review status'

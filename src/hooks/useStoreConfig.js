@@ -31,6 +31,7 @@ export const useCreateStoreConfig = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['storeConfig'] })
             toast.success(data.data?.message || 'Store configuration created successfully')
+            return data
         },
         onError: (error) => {
             console.error('Create store config error:', error)
@@ -48,6 +49,7 @@ export const useUpdateStoreConfig = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['storeConfig'] })
             toast.success(data.data?.message || 'Store configuration updated successfully')
+            return data
         },
         onError: (error) => {
             console.error('Update store config error:', error)
@@ -65,6 +67,7 @@ export const useDeleteStoreConfig = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['storeConfig'] })
             toast.success(data.data?.message || 'Store configuration deleted successfully')
+            return data
         },
         onError: (error) => {
             console.error('Delete store config error:', error)
@@ -82,6 +85,7 @@ export const useInitStoreConfig = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['storeConfig'] })
             toast.success(data.data?.message || 'Default store configuration initialized successfully')
+            return data
         },
         onError: (error) => {
             console.error('Init store config error:', error)
