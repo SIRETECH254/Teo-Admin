@@ -61,17 +61,6 @@ const Products = () => {
     const brands = useMemo(() => brandsData?.data?.data?.brands || [], [brandsData])
     const categories = useMemo(() => categoriesData?.data?.data?.categories || [], [categoriesData])
 
-    // Debug: Log the processed data
-    console.log('Processed products:', products)
-    console.log('Products length:', products.length)
-    console.log('Is loading:', isLoading)
-    console.log('Data structure check:', {
-        hasData: !!data,
-        dataType: typeof data,
-        hasDataProperty: !!(data && data.data),
-        dataPropertyType: data && data.data ? typeof data.data : 'undefined',
-        isArray: Array.isArray(data?.data)
-    })
 
     // Memoize event handlers to prevent unnecessary re-renders
     const handleSelectProduct = useCallback((productId) => {
