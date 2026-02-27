@@ -19,9 +19,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { FiMail, FiPhone, FiLock, FiEye, FiEyeOff, FiChevronDown } from 'react-icons/fi'
-import { FcGoogle } from 'react-icons/fc'
-import { FaApple, FaInstagram } from 'react-icons/fa'
+import { FiMail, FiLock, FiEye, FiEyeOff } from 'react-icons/fi'
 import logo from '../../assets/logo.png'
 import { loginSchema } from '../../utils/validation'
 ```
@@ -30,9 +28,9 @@ import { loginSchema } from '../../utils/validation'
 - **Context provider:** `AuthProvider` from `contexts/AuthContext.jsx` wraps the app and exposes the `useAuth` hook.
 - **Redux slice:** `store/slices/authSlice.js` stores `user`, `isAuthenticated`, `isLoading`, and `error`.
 - **Persistent storage:** `localStorage` stores `accessToken`, `refreshToken`, and serialized `user` data.
-- **Hook usage on login screen:** `const { login, initiateGoogleAuth } = useAuth();`
-- **Form state:** `formData` object `{ email, phone, password, loginMethod }` managed with `useState`.
-- **Additional state:** `countryCode`, `showPassword`, `isLoading`, `error`, `validationErrors`.
+- **Hook usage on login screen:** `const { login } = useAuth();`
+- **Form state:** `formData` object `{ email, password }` managed with `useState`.
+- **Additional state:** `showPassword`, `isLoading`, `error`, `validationErrors`.
 
 **`login` function (from `AuthContext.jsx`):**
 ```javascript
@@ -72,7 +70,7 @@ const login = async (credentials) => {
 ## UI Structure
 - **Screen shell:** Two-column responsive layout (`flex-col lg:flex-row`) with full-height container.
 - **Left side:** Logo and title section, centered vertically and horizontally.
-- **Right side:** Login form with email/phone toggle, inputs, and social login buttons.
+- **Right side:** Login form with email and password inputs.
 - **Typography:** Uses Tailwind utility classes with custom `.title2` class for headings.
 - **Branding:** Logo image displayed prominently on the left side.
 - **Feedback:** Error banner shown above submit button, validation errors below inputs.
@@ -82,28 +80,18 @@ const login = async (credentials) => {
 ┌─────────────────────────────────────────────┐
 │  Left Side          │    Right Side         │
 │  ┌──────────────┐   │   ┌─────────────────┐ │
-│  │    Logo      │   │   │ Email/Phone     │ │
-│  │              │   │   │ Toggle Buttons  │ │
+│  │    Logo      │   │   │ Email Input     │ │
+│  │              │   │   │ Field           │ │
 │  └──────────────┘   │   ├─────────────────┤ │
-│                     │   │ Email/Phone     │ │
-│  Title:             │   │ Input Field    │ │
+│                     │   │ Password Input │ │
+│  Title:             │   │ (with toggle)   │ │
 │  "Sign in to        │   ├─────────────────┤ │
-│   your account"     │   │ Password Input │ │
-│                     │   │ (with toggle)   │ │
+│   your account"     │   │ Error Message  │ │
+│                     │   │ (if any)       │ │
 │  Subtitle:          │   ├─────────────────┤ │
-│  "Welcome back!     │   │ Error Message  │ │
-│   Please enter      │   │ (if any)       │ │
-│   your details."    │   ├─────────────────┤ │
-│                     │   │ Forgot Password │ │
-│                     │   ├─────────────────┤ │
-│                     │   │ Sign in Button │ │
-│                     │   ├─────────────────┤ │
-│                     │   │ Divider: "Or    │ │
-│                     │   │  continue with" │ │
-│                     │   ├─────────────────┤ │
-│                     │   │ Google Button  │ │
-│                     │   │ Apple Button   │ │
-│                     │   │ Instagram Btn  │ │
+│  "Welcome back!     │   │ Forgot Password │ │
+│   Please enter      │   ├─────────────────┤ │
+│   your details."    │   │ Sign in Button │ │
 │                     │   └─────────────────┘ │
 └─────────────────────────────────────────────┘
 ```
@@ -113,58 +101,21 @@ const login = async (credentials) => {
 ┌───────────────────────────────────────────────────────────────┐
 │                                                               │
 │  ┌──────────────┐              ┌──────────────────────────┐ │
-│  │              │              │  [Email] [Phone]         │ │
-│  │    Logo      │              │                          │ │
-│  │              │              │  📧 Email/Phone Input    │ │
-│  └──────────────┘              │                          │ │
-│                                 │  🔒 Password [👁]        │ │
-│  Sign in to your account        │                          │ │
-│  Welcome back! Please enter     │  Error message (if any)  │ │
-│  your details.                  │                          │ │
-│                                 │  Forgot your password?   │ │
+│  │              │              │                          │ │
+│  │    Logo      │              │  📧 Email Input          │ │
+│  │              │              │                          │ │
+│  └──────────────┘              │  🔒 Password [👁]        │ │
+│                                 │                          │ │
+│  Sign in to your account        │  Error message (if any)  │ │
+│  Welcome back! Please enter     │                          │ │
+│  your details.                  │  Forgot your password?   │ │
 │                                 │                          │ │
 │                                 │  [  Sign in  ]          │ │
-│                                 │                          │ │
-│                                 │  ─── Or continue with ── │ │
-│                                 │                          │ │
-│                                 │  [🔵 Continue with Google]│ │
-│                                 │  [⚫ Continue with Apple] │ │
-│                                 │  [📷 Continue w/ Instagram]│ │
 │                                 └──────────────────────────┘ │
 └───────────────────────────────────────────────────────────────┘
 ```
 
 ## Form Inputs
-
-- **Login Method Toggle** (Email/Phone)
-  ```javascript
-  <div className="flex rounded-lg shadow-sm overflow-hidden">
-      <button
-          type="button"
-          onClick={() => handleLoginMethodChange('email')}
-          className={`flex-1 py-3 px-4 text-sm font-medium ${
-              formData.loginMethod === 'email'
-                  ? 'bg-primary text-white'
-                  : 'bg-white text-primary border border-primary'
-          }`}
-      >
-          <FiMail className="inline mr-2" />
-          Email
-      </button>
-      <button
-          type="button"
-          onClick={() => handleLoginMethodChange('phone')}
-          className={`flex-1 py-3 px-4 text-sm font-medium ${
-              formData.loginMethod === 'phone'
-                  ? 'bg-primary text-white'
-                  : 'bg-white text-primary border border-primary'
-          }`}
-      >
-          <FiPhone className="inline mr-2" />
-          Phone
-      </button>
-  </div>
-  ```
 
 - **Email Input Field**
   ```javascript
@@ -184,40 +135,6 @@ const login = async (credentials) => {
       />
       {validationErrors.email && (
           <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
-      )}
-  </div>
-  ```
-
-- **Phone Input Field** (with Country Code Selector)
-  ```javascript
-  <div className="flex">
-      <div className="relative flex-shrink-0">
-          <select
-              value={countryCode}
-              onChange={(e) => setCountryCode(e.target.value)}
-              className="h-full px-3 py-3 border border-gray-300 rounded-l-lg"
-          >
-              {countryCodes.map((country, index) => (
-                  <option key={index} value={country.code}>
-                      {country.flag} {country.code}
-                  </option>
-              ))}
-          </select>
-      </div>
-      <div className="flex-1 relative">
-          <input
-              id="phone"
-              name="phone"
-              type="tel"
-              required
-              className={`w-full px-4 py-3 border border-gray-300 rounded-r-lg ${validationErrors.phone ? 'border-red-500' : ''}`}
-              placeholder="Enter your phone number"
-              value={formData.phone}
-              onChange={handleInputChange}
-          />
-      </div>
-      {validationErrors.phone && (
-          <p className="mt-1 text-sm text-red-600">{validationErrors.phone}</p>
       )}
   </div>
   ```
@@ -271,51 +188,18 @@ const login = async (credentials) => {
   </button>
   ```
 
-- **Social Login Buttons**
-  ```javascript
-  {/* Google Login */}
-  <button
-      onClick={handleGoogleLogin}
-      className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-white hover:bg-gray-50"
-  >
-      <FcGoogle className="w-5 h-5 mr-3" />
-      <span className="font-medium">Continue with Google</span>
-  </button>
-
-  {/* Apple Login */}
-  <button
-      onClick={handleAppleLogin}
-      className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-black text-white hover:bg-gray-900"
-  >
-      <FaApple className="w-5 h-5 mr-3" />
-      <span className="font-medium">Continue with Apple</span>
-  </button>
-
-  {/* Instagram Login */}
-  <button
-      onClick={handleInstagramLogin}
-      className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white"
-  >
-      <FaInstagram className="w-5 h-5 mr-3" />
-      <span className="font-medium">Continue with Instagram</span>
-  </button>
-  ```
-
 ## API Integration
 - **HTTP client:** `axios` instance from `api/config.js` via `authAPI.login`.
 - **Endpoint:** `POST /api/auth/login`.
-- **Payload:** `{ email: string, password: string }` OR `{ phone: string, password: string }`.
-  - Phone number includes country code (e.g., `+254712345678`).
+- **Payload:** `{ email: string, password: string }`.
 - **Response contract:** `response.data.data` contains `{ user, accessToken, refreshToken }`.
 - **Token handling:** Tokens saved to `localStorage`; Redux receives `setAuthSuccess` action.
 - **Error responses:** API returns message in `response.data.message`; fallback to generic message.
 
 ## Components Used
 - React + React Router DOM: `useNavigate`, `Link`.
-- Form elements: `input`, `button`, `label`, `div`, `p`, `select`, `option`.
-- `react-icons/fi` for icons (FiMail, FiPhone, FiLock, FiEye, FiEyeOff).
-- `react-icons/fc` for Google icon (FcGoogle).
-- `react-icons/fa` for Apple and Instagram icons (FaApple, FaInstagram).
+- Form elements: `input`, `button`, `label`, `div`, `p`.
+- `react-icons/fi` for icons (FiMail, FiLock, FiEye, FiEyeOff).
 - Tailwind CSS classes for styling with custom classes (`.title2`, `.btn-primary`, `.input`).
 - Logo image from `assets/logo.png`.
 
@@ -337,7 +221,6 @@ const login = async (credentials) => {
 - **Successful login:** `navigate('/')` (root route, which shows Dashboard for authenticated users).
 - **Secondary navigation:**
   - "Forgot your password?" link ➞ `/forgot-password`.
-  - Social login buttons redirect to OAuth providers (Google redirects to Google OAuth page).
 
 ## Functions Involved
 
@@ -351,23 +234,11 @@ const login = async (credentials) => {
 
       try {
           // Validate form data
-          const validationData = {
-              ...formData,
-              email: formData.loginMethod === 'email' ? formData.email : undefined,
-              phone: formData.loginMethod === 'phone' ? formData.phone : undefined
-          }
-          
-          await loginSchema.validate(validationData, { abortEarly: false })
+          await loginSchema.validate(formData, { abortEarly: false })
 
           const credentials = {
+              email: formData.email,
               password: formData.password
-          }
-
-          if (formData.loginMethod === 'email') {
-              credentials.email = formData.email
-          } else {
-              // Combine country code with phone number
-              credentials.phone = countryCode + formData.phone
           }
 
           const result = await login(credentials)
@@ -404,54 +275,7 @@ const login = async (credentials) => {
   }
   ```
 
-- **`handleLoginMethodChange`** — Switches between email and phone login methods.
-  ```javascript
-  const handleLoginMethodChange = (method) => {
-      setFormData(prev => ({
-          ...prev,
-          loginMethod: method,
-          email: method === 'email' ? prev.email : '',
-          phone: method === 'phone' ? prev.phone : ''
-      }))
-  }
-  ```
-
-- **`handleGoogleLogin`** — Initiates Google OAuth flow.
-  ```javascript
-  const handleGoogleLogin = async () => {
-      setIsLoading(true)
-      setError('')
-
-      try {
-          await initiateGoogleAuth()
-          // Note: The page will redirect to Google, so this code won't execute
-      } catch (error) {
-          console.error('Google login error:', error)
-          setError('Failed to initiate Google authentication.')
-          setIsLoading(false)
-      }
-  }
-  ```
-
-- **`handleAppleLogin`** — Placeholder for Apple OAuth (TODO: Implement).
-  ```javascript
-  const handleAppleLogin = () => {
-      console.log('Apple login clicked')
-      // TODO: Implement Apple OAuth
-  }
-  ```
-
-- **`handleInstagramLogin`** — Placeholder for Instagram OAuth (TODO: Implement).
-  ```javascript
-  const handleInstagramLogin = () => {
-      console.log('Instagram login clicked')
-      // TODO: Implement Instagram OAuth
-  }
-  ```
-
 ## Future Enhancements
-- Implement Apple OAuth authentication.
-- Implement Instagram OAuth authentication.
 - Add "Remember me" functionality if needed.
 - Add rate limiting feedback when API returns rate limit errors.
 - Add account lockout handling for multiple failed login attempts.

@@ -1,82 +1,28 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { FiMail, FiPhone, FiLock, FiEye, FiEyeOff, FiChevronDown } from 'react-icons/fi'
-import { FcGoogle } from 'react-icons/fc'
-import { FaApple, FaInstagram } from 'react-icons/fa'
+import { FiMail, FiLock, FiEye, FiEyeOff } from 'react-icons/fi'
 import logo from '../../assets/logo.png'
 import { loginSchema } from '../../utils/validation'
 
 const Login = () => {
     const [formData, setFormData] = useState({
         email: '',
-        phone: '',
-        password: '',
-        loginMethod: 'email' // 'email' or 'phone'
+        password: ''
     })
-    const [countryCode, setCountryCode] = useState('+254') // Default to Kenya
     const [showPassword, setShowPassword] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
     const [validationErrors, setValidationErrors] = useState({})
 
-    // Country codes data
-    const countryCodes = [
-        { code: '+254', country: 'Kenya', flag: '🇰🇪' },
-        { code: '+1', country: 'USA', flag: '🇺🇸' },
-        { code: '+44', country: 'UK', flag: '🇬🇧' },
-        { code: '+91', country: 'India', flag: '🇮🇳' },
-        { code: '+234', country: 'Nigeria', flag: '🇳🇬' },
-        { code: '+27', country: 'South Africa', flag: '🇿🇦' },
-        { code: '+256', country: 'Uganda', flag: '🇺🇬' },
-        { code: '+255', country: 'Tanzania', flag: '🇹🇿' },
-        { code: '+250', country: 'Rwanda', flag: '🇷🇼' },
-        { code: '+251', country: 'Ethiopia', flag: '🇪🇹' },
-        { code: '+254', country: 'Kenya', flag: '🇰🇪' },
-    ]
-
-    const { login, initiateGoogleAuth } = useAuth()
+    const { login } = useAuth()
     const navigate = useNavigate()
-
-    // Social login handlers
-    const handleGoogleLogin = async () => {
-        setIsLoading(true)
-        setError('')
-
-        try {
-            await initiateGoogleAuth()
-            // Note: The page will redirect to Google, so this code won't execute
-        } catch (error) {
-            console.error('Google login error:', error)
-            setError('Failed to initiate Google authentication. Please check your Google OAuth configuration.')
-            setIsLoading(false)
-        }
-    }
-
-    const handleAppleLogin = () => {
-        console.log('Apple login clicked')
-        // TODO: Implement Apple OAuth
-    }
-
-    const handleInstagramLogin = () => {
-        console.log('Instagram login clicked')
-        // TODO: Implement Instagram OAuth
-    }
 
     const handleInputChange = (e) => {
         const { name, value } = e.target
         setFormData(prev => ({
             ...prev,
             [name]: value
-        }))
-    }
-
-    const handleLoginMethodChange = (method) => {
-        setFormData(prev => ({
-            ...prev,
-            loginMethod: method,
-            email: method === 'email' ? prev.email : '',
-            phone: method === 'phone' ? prev.phone : ''
         }))
     }
 
@@ -88,23 +34,11 @@ const Login = () => {
 
         try {
             // Validate form data
-            const validationData = {
-                ...formData,
-                email: formData.loginMethod === 'email' ? formData.email : undefined,
-                phone: formData.loginMethod === 'phone' ? formData.phone : undefined
-            }
-            
-            await loginSchema.validate(validationData, { abortEarly: false })
+            await loginSchema.validate(formData, { abortEarly: false })
 
             const credentials = {
+                email: formData.email,
                 password: formData.password
-            }
-
-            if (formData.loginMethod === 'email') {
-                credentials.email = formData.email
-            } else {
-                // Combine country code with phone number
-                credentials.phone = countryCode + formData.phone
             }
 
             const result = await login(credentials)
@@ -158,92 +92,27 @@ const Login = () => {
 
                     {/* Login Form */}
                     <form className="space-y-6" onSubmit={handleSubmit}>
-                        {/* Login Method Toggle */}
-                        <div className="flex rounded-lg shadow-sm overflow-hidden">
-                            <button
-                                type="button"
-                                onClick={() => handleLoginMethodChange('email')}
-                                className={`flex-1 py-3 px-4 text-sm font-medium transition-all duration-200 ${
-                                    formData.loginMethod === 'email'
-                                        ? 'bg-primary text-white'
-                                        : 'bg-white text-primary border border-primary hover:bg-primary hover:text-white'
-                                }`}
-                            >
-                                <FiMail className="inline mr-2" />
-                                Email
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handleLoginMethodChange('phone')}
-                                className={`flex-1 py-3 px-4 text-sm font-medium transition-all duration-200 ${
-                                    formData.loginMethod === 'phone'
-                                        ? 'bg-primary text-white'
-                                        : 'bg-white text-primary border border-primary hover:bg-primary hover:text-white'
-                                }`}
-                            >
-                                <FiPhone className="inline mr-2" />
-                                Phone
-                            </button>
-                        </div>
-
-                        {/* Email/Phone Input */}
+                        {/* Email Input */}
                         <div>
-                            <label htmlFor={formData.loginMethod} className="block text-start text-sm font-medium text-gray-700 mb-2">
-                                {formData.loginMethod === 'email' ? 'Email address' : 'Phone number'}
+                            <label htmlFor="email" className="block text-start text-sm font-medium text-gray-700 mb-2">
+                                Email address
                             </label>
                             <div className="relative">
-                                {formData.loginMethod === 'email' ? (
-                                    <>
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                            <FiMail className="h-5 w-5 text-primary" />
-                                        </div>
-                                        <input
-                                            id={formData.loginMethod}
-                                            name={formData.loginMethod}
-                                            type="email"
-                                            required
-                                            className={`input pl-10 ${validationErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
-                                            placeholder="Enter your email"
-                                            value={formData[formData.loginMethod]}
-                                            onChange={handleInputChange}
-                                        />
-                                        {validationErrors.email && (
-                                            <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
-                                        )}
-                                    </>
-                                ) : (
-                                    <div className="flex">
-                                        {/* Country Code Selector */}
-                                        <div className="relative flex-shrink-0">
-                                            <select
-                                                value={countryCode}
-                                                onChange={(e) => setCountryCode(e.target.value)}
-                                                className="h-full px-3 py-3 border border-gray-300 rounded-l-lg border-r-0 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all duration-200 bg-white text-sm"
-                                            >
-                                                {countryCodes.map((country, index) => (
-                                                    <option key={index} value={country.code}>
-                                                        {country.flag} {country.code}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        {/* Phone Input */}
-                                        <div className="flex-1 relative">
-                                            <input
-                                                id={formData.loginMethod}
-                                                name={formData.loginMethod}
-                                                type="tel"
-                                                required
-                                                className={`w-full px-4 py-3 border border-gray-300 rounded-r-lg focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all duration-200 text-sm ${validationErrors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
-                                                placeholder="Enter your phone number"
-                                                value={formData[formData.loginMethod]}
-                                                onChange={handleInputChange}
-                                            />
-                                        </div>
-                                        {validationErrors.phone && (
-                                            <p className="mt-1 text-sm text-red-600">{validationErrors.phone}</p>
-                                        )}
-                                    </div>
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <FiMail className="h-5 w-5 text-primary" />
+                                </div>
+                                <input
+                                    id="email"
+                                    name="email"
+                                    type="email"
+                                    required
+                                    className={`input pl-10 ${validationErrors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                                    placeholder="Enter your email"
+                                    value={formData.email}
+                                    onChange={handleInputChange}
+                                />
+                                {validationErrors.email && (
+                                    <p className="mt-1 text-sm text-red-600">{validationErrors.email}</p>
                                 )}
                             </div>
                         </div>
@@ -324,49 +193,6 @@ const Login = () => {
                         </div>
 
                     </form>
-
-                    {/* Social Login Section */}
-                    <div className="mt-8">
-                        {/* Divider */}
-                        <div className="relative">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-gray-300"></div>
-                            </div>
-                            <div className="relative flex justify-center text-sm">
-                                <span className="px-2 bg-white text-gray-500">Or continue with</span>
-                            </div>
-                        </div>
-
-                        {/* Social Login Buttons */}
-                        <div className="mt-6 space-y-3">
-                            {/* Google Login */}
-                            <button
-                                onClick={handleGoogleLogin}
-                                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-200"
-                            >
-                                <FcGoogle className="w-5 h-5 mr-3" />
-                                <span className="font-medium">Continue with Google</span>
-                            </button>
-
-                            {/* Apple Login */}
-                            <button
-                                onClick={handleAppleLogin}
-                                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-black text-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-200"
-                            >
-                                <FaApple className="w-5 h-5 mr-3" />
-                                <span className="font-medium">Continue with Apple</span>
-                            </button>
-
-                            {/* Instagram Login */}
-                            <button
-                                onClick={handleInstagramLogin}
-                                className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white hover:from-purple-600 hover:via-pink-600 hover:to-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-200"
-                            >
-                                <FaInstagram className="w-5 h-5 mr-3" />
-                                <span className="font-medium">Continue with Instagram</span>
-                            </button>
-                        </div>
-                    </div>
                     
                 </div>
             </div>
