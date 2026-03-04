@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { FiEdit, FiPlus, FiTrash2, FiLoader, FiAlertTriangle, FiX } from 'react-icons/fi'
-import { useGetVariantById, useUpdateVariant } from '../../hooks/useVariants'
-import { variantAPI } from '../../api'
+import { useGetVariantById, useUpdateVariant, useAddVariantOption, useRemoveVariantOption } from '../../hooks/useVariants'
 import { variantSchema } from '../../utils/validation'
 import toast from 'react-hot-toast'
 
@@ -13,6 +12,8 @@ const EditVariant = () => {
 
     const { data, isLoading, isError, error } = useGetVariantById(id)
     const updateVariantMutation = useUpdateVariant()
+    const addOptionMutation = useAddVariantOption()
+    const removeOptionMutation = useRemoveVariantOption()
 
     const [formData, setFormData] = useState({
         name: '',
@@ -131,7 +132,7 @@ const EditVariant = () => {
             // Perform add/remove operations
             for (const opt of optionsToAdd) {
                 try {
-                    await variantAPI.addOption(id, { value: opt.value.trim() })
+                    await addOptionMutation.mutateAsync({ variantId: id, optionData: { value: opt.value.trim() } })
                 } catch (error) {
                     console.error('Failed to add option:', error)
                     throw new Error(`Failed to add option "${opt.value}": ${error.response?.data?.message || error.message}`)
@@ -140,7 +141,7 @@ const EditVariant = () => {
 
             for (const opt of optionsToRemove) {
                 try {
-                    await variantAPI.removeOption(id, String(opt._id))
+                    await removeOptionMutation.mutateAsync({ variantId: id, optionId: String(opt._id) })
                 } catch (error) {
                     console.error('Failed to remove option:', error)
                     throw new Error(`Failed to remove option "${opt.value}": ${error.response?.data?.message || error.message}`)

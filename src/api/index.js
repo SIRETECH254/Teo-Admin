@@ -35,6 +35,9 @@ export const authAPI = {
 
     // Google Auth Mobile
     googleAuthMobile: (idTokenData) => api.post('api/auth/google/mobile', idTokenData),
+
+    // Refresh token
+    refreshToken: (refreshTokenData) => api.post('api/auth/refresh-token', refreshTokenData),
     
 }
 
@@ -64,6 +67,18 @@ export const userAPI = {
 
     // Admin: Create customer (password = phone)
     adminCreateCustomer: (data) => api.post('api/users/admin-create', data),
+
+    // Get notification preferences
+    getNotificationPreferences: () => api.get('api/users/notifications'),
+
+    // Update notification preferences
+    updateNotificationPreferences: (preferences) => api.put('api/users/notifications', preferences),
+
+    // Admin: Set user as admin
+    setUserAdmin: (userId, data) => api.put(`api/users/${userId}/admin`, data),
+
+    // Admin: Get user roles
+    getUserRoles: (userId) => api.get(`api/users/${userId}/roles`),
     
 }
 
@@ -104,6 +119,15 @@ export const productAPI = {
     
     // Generate SKUs
     generateSKUs: (productId) => api.post(`api/products/${productId}/generate-skus`),
+
+    // Get optimized images
+    getOptimizedImages: (productId, params) => api.get(`api/products/${productId}/optimized-images`, { params }),
+
+    // Attach variant to product
+    attachVariant: (productId, variantData) => api.post(`api/products/${productId}/attach-variant`, variantData),
+
+    // Detach variant from product
+    detachVariant: (productId, variantData) => api.post(`api/products/${productId}/detach-variant`, variantData),
     
 }
 
@@ -130,6 +154,9 @@ export const categoryAPI = {
     
     // Get categories with products
     getCategoriesWithProducts: () => api.get('api/categories/with-products'),
+
+    // Get root categories
+    getRootCategories: () => api.get('api/categories/root'),
     
 }
 
@@ -153,6 +180,12 @@ export const brandAPI = {
     
     // Get popular brands
     getPopularBrands: (params) => api.get('api/brands/popular', { params }),
+
+    // Get brands with products
+    getBrandsWithProducts: () => api.get('api/brands/with-products'),
+
+    // Get active brands
+    getActiveBrands: () => api.get('api/brands/active'),
     
 }
 
@@ -179,6 +212,12 @@ export const tagAPI = {
     
     // Get popular tags
     getPopularTags: (params) => api.get('api/tags/popular', { params }),
+
+    // Get tags with products
+    getTagsWithProducts: () => api.get('api/tags/with-products'),
+
+    // Find or create tag
+    findOrCreateTag: (tagData) => api.post('api/tags/find-or-create', tagData),
     
 }
 
@@ -205,6 +244,12 @@ export const collectionAPI = {
 
     // Remove product from collection
     removeProduct: (id, productId) => api.delete(`api/collections/${id}/products/${productId}`),
+
+    // Get collections with products
+    getCollectionsWithProducts: () => api.get('api/collections/with-products'),
+
+    // Get active collections
+    getActiveCollections: () => api.get('api/collections/active'),
     
 }
 
@@ -280,11 +325,17 @@ export const orderAPI = {
 
     // Delete order
     deleteOrder: (orderId) => api.delete(`api/orders/${orderId}`),
+
+    // Assign rider to order
+    assignRider: (orderId, riderData) => api.patch(`api/orders/${orderId}/assign-rider`, riderData),
     
 }
 
 // Invoice API calls
 export const invoiceAPI = {
+
+    // Create invoice
+    createInvoice: (invoiceData) => api.post('api/invoices', invoiceData),
 
     // Get invoice by ID
     getInvoiceById: (invoiceId) => api.get(`api/invoices/${invoiceId}`),
@@ -313,6 +364,9 @@ export const paymentAPI = {
 
 // Receipt API calls
 export const receiptAPI = {
+
+    // Create receipt
+    createReceipt: (receiptData) => api.post('api/receipts', receiptData),
 
     // Get receipt by ID
     getReceiptById: (receiptId) => api.get(`api/receipts/${receiptId}`),
@@ -437,6 +491,35 @@ export const storeConfigAPI = {
 
     // Initialize default store configuration (admin only)
     initStoreConfig: () => api.post('api/store-config/init'),
+    
+}
+
+// Address API calls
+export const addressAPI = {
+
+    // Get all user addresses
+    getUserAddresses: () => api.get('api/addresses'),
+
+    // Get default address
+    getDefaultAddress: () => api.get('api/addresses/default'),
+
+    // Get address by ID
+    getAddressById: (addressId) => api.get(`api/addresses/${addressId}`),
+
+    // Create address
+    createAddress: (addressData) => api.post('api/addresses', addressData),
+
+    // Update address
+    updateAddress: (addressId, addressData) => api.put(`api/addresses/${addressId}`, addressData),
+
+    // Set default address
+    setDefaultAddress: (addressId) => api.put(`api/addresses/${addressId}/default`),
+
+    // Delete address
+    deleteAddress: (addressId) => api.delete(`api/addresses/${addressId}`),
+
+    // Admin: Get all addresses
+    getAllAddresses: (params) => api.get('api/addresses/admin/all', { params }),
     
 }
 

@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { orderAPI } from '../../api'
 import { FiSearch, FiX, FiFilter, FiList, FiAlertTriangle, FiEye, FiTrash2, FiTag } from 'react-icons/fi'
 import Pagination from '../../components/common/Pagination'
 import OrderStatusBadge from '../../components/common/OrderStatusBadge'
 import PaymentStatusBadge from '../../components/common/PaymentStatusBadge'
-import toast from 'react-hot-toast'
+import { useGetOrders, useDeleteOrder } from '../../hooks/useOrders'
 
 
 const Orders = () => {
@@ -21,9 +20,6 @@ const Orders = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10)
   const [selectedOrders, setSelectedOrders] = useState([])
   const [confirmDelete, setConfirmDelete] = useState({ open: false, order: null })
-
-  const [isLoading, setIsLoading] = useState(false)
-  const [ordersData, setOrdersData] = useState({ orders: [], pagination: {} })
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchTerm), 300)
@@ -42,58 +38,39 @@ const Orders = () => {
     return p
   }, [filterStatus, filterPayment, filterType, filterLocation, debouncedSearch, currentPage, itemsPerPage])
 
-  const loadOrders = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      const res = await orderAPI.getOrders(params)
-      const payload = res.data?.data || {}
-      setOrdersData({
-        orders: payload.orders || [],
-        pagination: payload.pagination || {}
-      })
-    } catch (e) {
-      toast.error('Failed to load orders')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [params])
+  const { data: ordersData, isLoading } = useGetOrders(params)
+  const deleteOrder = useDeleteOrder()
 
-  useEffect(() => {
-    loadOrders()
-  }, [loadOrders])
-
-  const orders = ordersData.orders
-  const pagination = ordersData.pagination
+  const orders = ordersData?.orders || []
+  const pagination = ordersData?.pagination || {}
   const totalItems = pagination.totalItems || orders.length
   const totalPages = Math.max(1, pagination.totalPages || Math.ceil((totalItems || 0) / (itemsPerPage || 1)))
 
-  const handleSelectOrder = useCallback((orderId) => {
+  const handleSelectOrder = (orderId) => {
     setSelectedOrders(prev => prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId])
-  }, [])
+  }
 
-  const handleSelectAll = useCallback(() => {
+  const handleSelectAll = () => {
     setSelectedOrders(prev => (prev.length === orders.length ? [] : orders.map(o => o._id)))
-  }, [orders])
+  }
 
-  const handleDelete = useCallback((order) => {
+  const handleDelete = (order) => {
     setConfirmDelete({ open: true, order })
-  }, [])
+  }
 
-  const confirmDeleteOrder = useCallback(async () => {
+  const confirmDeleteOrder = async () => {
     try {
-      await orderAPI.deleteOrder(confirmDelete.order._id)
+      await deleteOrder.mutateAsync(confirmDelete.order._id)
       setConfirmDelete({ open: false, order: null })
-      loadOrders()
-      toast.success('Order deleted')
-    } catch (e) {
-      toast.error('Failed to delete order')
+    } catch (error) {
+      // Error handled by hook
     }
-  }, [confirmDelete.order, loadOrders])
+  }
 
-  const clearSearch = useCallback(() => { setSearchTerm(''); setCurrentPage(1) }, [])
-  const clearFilters = useCallback(() => {
+  const clearSearch = () => { setSearchTerm(''); setCurrentPage(1) }
+  const clearFilters = () => {
     setFilterStatus('all'); setFilterPayment('all'); setFilterType('all'); setFilterLocation('all'); setCurrentPage(1)
-  }, [])
+  }
 
   const goToDetails = (orderId) => navigate(`/orders/${orderId}`)
 

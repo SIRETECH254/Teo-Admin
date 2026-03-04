@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { FiPlus, FiEdit, FiSearch, FiFilter, FiX, FiList, FiTrash2, FiAlertTriangle } from 'react-icons/fi'
 import Pagination from '../../components/common/Pagination'
-import api from '../../api'
+import { useGetRoles, useDeleteRole } from '../../hooks/useRoles'
 
 
 const Roles = () => {
@@ -13,9 +13,6 @@ const Roles = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10)
     const [selectedRoles, setSelectedRoles] = useState([])
     const [confirmDelete, setConfirmDelete] = useState({ open: false, role: null })
-
-    const [data, setData] = useState(null)
-    const [loading, setLoading] = useState(false)
 
     useEffect(() => {
         const t = setTimeout(() => setDebouncedSearch(searchTerm), 300)
@@ -31,17 +28,8 @@ const Roles = () => {
         return p
     }, [debouncedSearch, filterActive, currentPage, itemsPerPage])
 
-    const load = useCallback(async () => {
-        setLoading(true)
-        try {
-            const res = await api.get('/roles', { params })
-            setData(res.data)
-        } finally {
-            setLoading(false)
-        }
-    }, [params])
-
-    useEffect(() => { load() }, [load])
+    const { data, isLoading: loading } = useGetRoles(params)
+    const deleteRole = useDeleteRole()
 
     const roles = useMemo(() => data?.data?.roles || [], [data])
     const pagination = useMemo(() => data?.data?.pagination || {}, [data])
@@ -61,9 +49,8 @@ const Roles = () => {
     const onDelete = (role) => setConfirmDelete({ open: true, role })
     const confirmDeleteRole = async () => {
         try {
-            await api.delete(`/roles/${confirmDelete.role._id}`)
+            await deleteRole.mutateAsync(confirmDelete.role._id)
             setConfirmDelete({ open: false, role: null })
-            load()
         } catch {}
     }
 

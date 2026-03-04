@@ -41,6 +41,9 @@ const AddProduct = () => {
     // Separate file state - clean and simple
     const [files, setFiles] = useState([])
     const [newFeature, setNewFeature] = useState('')
+    
+    // Variant option selection state - format: { [variantId]: optionId[] }
+    const [selectedVariantOptions, setSelectedVariantOptions] = useState({})
 
     // Cleanup function to prevent memory leaks
     useEffect(() => {
@@ -116,6 +119,32 @@ const AddProduct = () => {
                 ? [...prev[field], value]
                 : prev[field].filter(item => item !== value)
         }))
+        
+        // If variant is deselected, remove its options from selectedVariantOptions
+        if (field === 'variants' && !checked) {
+            setSelectedVariantOptions(prev => {
+                const updated = { ...prev }
+                delete updated[value]
+                return updated
+            })
+        }
+    }, [])
+    
+    // Handle variant option selection/deselection
+    const handleVariantOptionToggle = useCallback((variantId, optionId, checked) => {
+        setSelectedVariantOptions(prev => {
+            const currentOptions = prev[variantId] || []
+            if (checked) {
+                // Add option if not already present
+                if (!currentOptions.includes(optionId)) {
+                    return { ...prev, [variantId]: [...currentOptions, optionId] }
+                }
+                return prev
+            } else {
+                // Remove option
+                return { ...prev, [variantId]: currentOptions.filter(id => id !== optionId) }
+            }
+        })
     }, [])
 
     // Memoize file handling functions
@@ -170,6 +199,32 @@ const AddProduct = () => {
         }))
     }, [])
 
+    // Transform selectedVariantOptions to backend format
+    const buildSelectedVariantOptions = useCallback(() => {
+        return Object.entries(selectedVariantOptions)
+            .filter(([variantId, optionIds]) => 
+                formData.variants.includes(variantId) && Array.isArray(optionIds) && optionIds.length > 0
+            )
+            .map(([variantId, optionIds]) => {
+                // Validate that all optionIds belong to the variant
+                const variant = variants.find(v => v._id === variantId)
+                if (variant && variant.options) {
+                    const validOptionIds = variant.options.map(opt => opt._id.toString())
+                    const filteredOptionIds = optionIds.filter(optId => 
+                        validOptionIds.includes(optId.toString())
+                    )
+                    if (filteredOptionIds.length > 0) {
+                        return {
+                            variantId,
+                            optionIds: filteredOptionIds
+                        }
+                    }
+                }
+                return null
+            })
+            .filter(Boolean) // Remove null entries
+    }, [selectedVariantOptions, formData.variants, variants])
+
     // Clean submit function - exactly like the blueprint
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -177,6 +232,7 @@ const AddProduct = () => {
         try {
             console.log('=== FORM SUBMISSION DEBUG ===')
             console.log('Form data:', formData)
+            console.log('Selected variant options:', selectedVariantOptions)
             console.log('Files count:', files.length)
             files.forEach((fileObj, index) => {
                 console.log(`File ${index}:`, {
@@ -187,34 +243,43 @@ const AddProduct = () => {
                 })
             })
 
-            // Create FormData - clean and simple
-            const formDataToSend = new FormData()
+            // Build selectedVariantOptions in backend format
+            const selectedVariantOptionsFormatted = buildSelectedVariantOptions()
+            console.log('Formatted selectedVariantOptions:', selectedVariantOptionsFormatted)
 
-            // Add form fields
-            Object.keys(formData).forEach(key => {
-                if (key === 'categories' || key === 'collections' || key === 'tags' || key === 'variants' || key === 'features') {
-                    formDataToSend.append(key, JSON.stringify(formData[key]))
-                } else {
-                    formDataToSend.append(key, formData[key])
-                }
-            })
+            // Conditional payload: FormData if images exist, JSON otherwise
+            let payload
+            if (files.length > 0) {
+                // Create FormData when images are present
+                const formDataToSend = new FormData()
 
-            // Add files - exactly like the blueprint
-            files.forEach((fileObj) => {
-                formDataToSend.append('images', fileObj.file)
-            })
+                // Add form fields
+                Object.keys(formData).forEach(key => {
+                    if (key === 'categories' || key === 'collections' || key === 'tags' || key === 'variants' || key === 'features') {
+                        formDataToSend.append(key, JSON.stringify(formData[key]))
+                    } else {
+                        formDataToSend.append(key, formData[key])
+                    }
+                })
 
-            console.log('=== FINAL FORMDATA DEBUG ===')
-            console.log('FormData entries:')
-            for (let [key, value] of formDataToSend.entries()) {
-                if (key === 'images') {
-                    console.log(`  ${key}: File - ${value.name} (${value.size} bytes)`)
-                } else {
-                    console.log(`  ${key}: ${value}`)
+                // Add selectedVariantOptions as JSON string
+                formDataToSend.append('selectedVariantOptions', JSON.stringify(selectedVariantOptionsFormatted))
+
+                // Add files
+                files.forEach((fileObj) => {
+                    formDataToSend.append('images', fileObj.file)
+                })
+
+                payload = formDataToSend
+            } else {
+                // Send JSON when no images
+                payload = { 
+                    ...formData,
+                    selectedVariantOptions: selectedVariantOptionsFormatted
                 }
             }
 
-            await createProduct.mutateAsync(formDataToSend)
+            await createProduct.mutateAsync(payload)
             navigate('/products')
         } catch (error) {
             console.error('Submit error:', error)
@@ -400,30 +465,80 @@ const AddProduct = () => {
                 return (
                     <div className="space-y-6">
                         <p className="text-sm text-gray-600">
-                            Select variants to create different product options (e.g., Size, Color)
+                            Select variants and their specific options to create product variations. SKUs will be auto-generated based on your selections.
                         </p>
 
                         {variants.length > 0 ? (
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                {variants.map(variant => (
-                                    <label key={variant._id} className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={formData.variants.includes(variant._id)}
-                                            onChange={(e) => handleArrayChange('variants', variant._id, e.target.checked)}
-                                            className="rounded border-gray-300 text-primary focus:ring-primary"
-                                        />
-                                        <div className="ml-3 flex-1">
-                                            <span className="text-sm font-medium text-gray-900">{variant.name}</span>
-                                            {variant.options?.length > 0 && (
-                                                <div className="text-xs text-gray-500 mt-1">
-                                                    {variant.options.slice(0, 3).map(opt => opt.value).join(', ')}
-                                                    {variant.options.length > 3 && ` +${variant.options.length - 3} more`}
+                            <div className="space-y-4">
+                                {variants.map(variant => {
+                                    const isVariantSelected = formData.variants.includes(variant._id)
+                                    const selectedOptions = selectedVariantOptions[variant._id] || []
+                                    
+                                    return (
+                                        <div key={variant._id} className="border border-gray-200 rounded-lg p-4">
+                                            <label className="flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isVariantSelected}
+                                                    onChange={(e) => handleArrayChange('variants', variant._id, e.target.checked)}
+                                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                                />
+                                                <div className="ml-3 flex-1">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-sm font-medium text-gray-900">{variant.name}</span>
+                                                        {isVariantSelected && selectedOptions.length > 0 && (
+                                                            <span className="text-xs text-primary font-medium">
+                                                                {selectedOptions.length} option{selectedOptions.length !== 1 ? 's' : ''} selected
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {variant.options?.length > 0 && !isVariantSelected && (
+                                                        <div className="text-xs text-gray-500 mt-1">
+                                                            {variant.options.length} option{variant.options.length !== 1 ? 's' : ''} available
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </label>
+                                            
+                                            {/* Show options when variant is selected */}
+                                            {isVariantSelected && variant.options && variant.options.length > 0 && (
+                                                <div className="ml-7 mt-4 pt-4 border-t border-gray-200">
+                                                    <label className="block text-xs font-medium text-gray-700 mb-3">
+                                                        Select Options for {variant.name}:
+                                                    </label>
+                                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                                        {variant.options.map(option => {
+                                                            const isOptionSelected = selectedOptions.includes(option._id)
+                                                            return (
+                                                                <label 
+                                                                    key={option._id} 
+                                                                    className={`flex items-center p-2 rounded border-2 cursor-pointer transition-all ${
+                                                                        isOptionSelected
+                                                                            ? 'border-primary bg-primary/5'
+                                                                            : 'border-gray-200 hover:border-gray-300'
+                                                                    }`}
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isOptionSelected}
+                                                                        onChange={(e) => handleVariantOptionToggle(variant._id, option._id, e.target.checked)}
+                                                                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                                                                    />
+                                                                    <span className="ml-2 text-sm text-gray-700">{option.value}</span>
+                                                                </label>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                    {selectedOptions.length === 0 && (
+                                                        <p className="text-xs text-amber-600 mt-2">
+                                                            ⚠️ No options selected. A default SKU will be created if no options are chosen.
+                                                        </p>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
-                                    </label>
-                                ))}
+                                    )
+                                })}
                             </div>
                         ) : (
                             <div className="text-center py-8">
@@ -436,12 +551,20 @@ const AddProduct = () => {
                         )}
 
                         {formData.variants.length > 0 && (
-                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                <p className="text-sm text-blue-800">
-                                    <FiBox className="inline mr-2 h-4 w-4" />
-                                    {formData.variants.length} variant{formData.variants.length !== 1 ? 's' : ''} selected.
-                                    SKUs will be auto-generated based on variant combinations.
-                                </p>
+                            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="flex items-start">
+                                    <FiBox className="inline mr-2 h-4 w-4 mt-0.5 text-blue-600" />
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium text-blue-900 mb-1">
+                                            {formData.variants.length} variant{formData.variants.length !== 1 ? 's' : ''} selected
+                                        </p>
+                                        <p className="text-xs text-blue-700">
+                                            {Object.keys(selectedVariantOptions).length > 0
+                                                ? 'SKUs will be auto-generated based on selected option combinations.'
+                                                : 'Select options for each variant to generate SKUs, or leave empty for a default SKU.'}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -660,8 +783,32 @@ const AddProduct = () => {
                                     <FiEdit2 className="w-4 h-4" />
                                 </button>
                             </div>
-                            <div className="text-sm text-gray-700">
-                                {formData.variants.length > 0 ? variants.filter(v => formData.variants.includes(v._id)).map(v => v.name).join(', ') : 'No variants'}
+                            <div className="text-sm text-gray-700 space-y-2">
+                                {formData.variants.length > 0 ? (
+                                    variants.filter(v => formData.variants.includes(v._id)).map(variant => {
+                                        const selectedOptions = selectedVariantOptions[variant._id] || []
+                                        const optionNames = variant.options
+                                            ?.filter(opt => selectedOptions.includes(opt._id))
+                                            .map(opt => opt.value) || []
+                                        
+                                        return (
+                                            <div key={variant._id} className="border-l-2 border-primary pl-2">
+                                                <div className="font-medium text-gray-900">{variant.name}</div>
+                                                {optionNames.length > 0 ? (
+                                                    <div className="text-xs text-gray-600 mt-1">
+                                                        Options: {optionNames.join(', ')}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs text-amber-600 mt-1">
+                                                        No options selected (default SKU will be created)
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })
+                                ) : (
+                                    <span>No variants selected</span>
+                                )}
                             </div>
                         </div>
 

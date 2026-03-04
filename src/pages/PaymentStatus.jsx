@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { io } from 'socket.io-client'
-import { paymentAPI, orderAPI } from '../api'
 import toast from 'react-hot-toast'
 import { FiShoppingCart } from 'react-icons/fi'
+import { useGetOrderById, useCreateOrder } from '../hooks/useOrders'
+import { usePayInvoice, useQueryMpesaByCheckoutId } from '../hooks/usePayments'
 
 
 const PaymentStatus = () => {
@@ -20,6 +21,13 @@ const PaymentStatus = () => {
   const payerPhone = searchParams.get('payerPhone')
   const payerEmail = searchParams.get('payerEmail')
   const errorParam = searchParams.get('error')
+
+  // Hooks
+  const { data: order, isLoading: isLoadingOrder, refetch: refetchOrder } = useGetOrderById(orderId)
+  const createOrder = useCreateOrder()
+  const payInvoice = usePayInvoice()
+  // Query M-Pesa status hook - disabled by default, will be enabled when fallback is needed
+  const queryMpesaStatus = useQueryMpesaByCheckoutId(checkoutRequestId)
 
   // State management
   const [paymentView, setPaymentView] = useState({ 
@@ -105,15 +113,15 @@ const PaymentStatus = () => {
             })
 
             // Fetch fresh order breakdown
-            if (orderId) {
-              try {
-                const detail = await orderAPI.getOrderById(orderId)
-                const ord = detail?.data?.data?.order
-                setOrderBreakdown(ord?.pricing || null)
-              } catch (err) {
-                console.error('Failed to fetch order breakdown:', err)
+              if (orderId) {
+                try {
+                  const detail = await refetchOrder()
+                  const ord = detail?.data
+                  setOrderBreakdown(ord?.pricing || null)
+                } catch (err) {
+                  console.error('Failed to fetch order breakdown:', err)
+                }
               }
-            }
 
             toast.success(resultMessage)
             break
@@ -321,8 +329,9 @@ const PaymentStatus = () => {
           setIsLoading(true)
           
           console.log('Fallback: Querying M-Pesa status from Safaricom...')
-          const res = await paymentAPI.queryMpesaByCheckoutId(checkoutRequestId)
-          const { resultCode, resultDesc } = res.data?.data || {}
+          // Use the query hook's refetch function
+          const queryResult = await queryMpesaStatus.refetch()
+          const { resultCode, resultDesc } = queryResult?.data?.data || {}
           
           console.log('Fallback Query Result:', { resultCode, resultDesc })
           
@@ -338,8 +347,8 @@ const PaymentStatus = () => {
               
               if (orderId) {
                 try {
-                  const detail = await orderAPI.getOrderById(orderId)
-                  const ord = detail?.data?.data?.order
+                  const detail = await refetchOrder()
+                  const ord = detail?.data
                   setOrderBreakdown(ord?.pricing || null)
                 } catch (err) {
                   console.error('Failed to fetch order breakdown:', err)
@@ -493,138 +502,121 @@ const PaymentStatus = () => {
 
   // Load order data and initialize payment tracking based on method
   useEffect(() => {
-    const loadOrderDataAndInitialize = async () => {
-      console.log('🔍 PaymentStatus: Initializing...', { method, orderId, paymentId })
+    console.log('🔍 PaymentStatus: Initializing...', { method, orderId, paymentId })
+    
+    // Check for error parameter (order creation failed for cash/post_to_bill)
+    if (errorParam && !orderId) {
+      setPaymentView({
+        status: 'FAILED',
+        title: method === 'cash' ? 'Order Creation Failed' : 'Failed to Post Order to Bill',
+        message: errorParam,
+        provider
+      })
+      return
+    }
+    
+    // Try to load order details if orderId is available
+    if (!orderId) {
+      // Missing orderId for cash/post_to_bill means order creation failed
+      if (method === 'cash' || method === 'post_to_bill') {
+        setPaymentView({
+          status: 'FAILED',
+          title: 'Order Creation Failed',
+          message: 'No order ID found - order creation may have failed',
+          provider
+        })
+      }
+      return
+    }
+    
+    // Order is loaded via useGetOrderById hook
+    if (order && !isLoadingOrder) {
+      console.log('📦 Order loaded successfully')
+        
+      // Set order breakdown from order.pricing
+      if (order.pricing) {
+        setOrderBreakdown(order.pricing)
+      }
       
-      // Check for error parameter (order creation failed for cash/post_to_bill)
-      if (errorParam && !orderId) {
+      // Set cart items from order
+      if (order.items && order.items.length > 0) {
+        setCart({ items: order.items })
+      }
+      
+      // === BRANCH BY PAYMENT METHOD ===
+      
+      if (method === 'mpesa') {
+        // M-Pesa: Connect socket + start fallback timer
+        console.log('💳 Initializing M-Pesa tracking...')
+        setPaymentView({
+          status: 'PENDING',
+          title: 'Payment Processing',
+          message: 'Check your phone for M-Pesa prompt...',
+          provider
+        })
+        
+        if (paymentId) {
+          startPaymentTracking(paymentId, method)
+        }
+        
+      } else if (method === 'paystack') {
+        // Paystack: Connect socket only (no fallback)
+        console.log('💳 Initializing Paystack tracking...')
+        setPaymentView({
+          status: 'PENDING',
+          title: 'Payment Processing',
+          message: 'Complete payment in the Paystack window...',
+          provider
+        })
+        
+        if (paymentId) {
+          startPaymentTracking(paymentId, method)
+        }
+        
+      } else if (method === 'cash') {
+        // Cash: Instant success (order created successfully)
+        console.log('💵 Cash payment - Order created successfully')
+        setPaymentView({
+          status: 'SUCCESS',
+          title: 'Order Placed Successfully!',
+          message: 'Pay cash when you receive your order',
+          provider
+        })
+        
+      } else if (method === 'post_to_bill') {
+        // Post-to-Bill: Instant success (order created successfully)
+        console.log('📋 Post-to-Bill - Order posted successfully')
+        setPaymentView({
+          status: 'SUCCESS',
+          title: 'Order Posted to Bill!',
+          message: 'You can pay this bill later',
+          provider
+        })
+      }
+      
+    } else if (!isLoadingOrder && !order) {
+      console.warn('⚠️ No order found')
+      if (method === 'cash' || method === 'post_to_bill') {
         setPaymentView({
           status: 'FAILED',
           title: method === 'cash' ? 'Order Creation Failed' : 'Failed to Post Order to Bill',
-          message: errorParam,
+          message: 'No order ID found - order creation may have failed',
           provider
         })
-        return
-      }
-      
-        // Try to load order details if orderId is available
-      if (!orderId) {
-        // Missing orderId for cash/post_to_bill means order creation failed
-        if (method === 'cash' || method === 'post_to_bill') {
-          setPaymentView({
-            status: 'FAILED',
-            title: 'Order Creation Failed',
-            message: 'No order ID found - order creation may have failed',
-            provider
-          })
-        }
-        return
-      }
-      
-      try {
-          console.log('📦 Fetching order details for orderId:', orderId)
-          const orderDetail = await orderAPI.getOrderById(orderId)
-          const order = orderDetail?.data?.data?.order
-          
-          if (order) {
-          console.log('📦 Order loaded successfully')
-            
-            // Set order breakdown from order.pricing
-            if (order.pricing) {
-              setOrderBreakdown(order.pricing)
-            }
-            
-            // Set cart items from order
-            if (order.items && order.items.length > 0) {
-              setCart({ items: order.items })
-          }
-          
-          // === BRANCH BY PAYMENT METHOD ===
-          
-          if (method === 'mpesa') {
-            // M-Pesa: Connect socket + start fallback timer
-            console.log('💳 Initializing M-Pesa tracking...')
-            setPaymentView({
-              status: 'PENDING',
-              title: 'Payment Processing',
-              message: 'Check your phone for M-Pesa prompt...',
-              provider
-            })
-            
-            if (paymentId) {
-              startPaymentTracking(paymentId, method)
-            }
-            
-          } else if (method === 'paystack') {
-            // Paystack: Connect socket only (no fallback)
-            console.log('💳 Initializing Paystack tracking...')
-            setPaymentView({
-              status: 'PENDING',
-              title: 'Payment Processing',
-              message: 'Complete payment in the Paystack window...',
-              provider
-            })
-            
-            if (paymentId) {
-              startPaymentTracking(paymentId, method)
-            }
-            
-          } else if (method === 'cash') {
-            // Cash: Instant success (order created successfully)
-            console.log('💵 Cash payment - Order created successfully')
-            setPaymentView({
-              status: 'SUCCESS',
-              title: 'Order Placed Successfully!',
-              message: 'Pay cash when you receive your order',
-              provider
-            })
-            
-          } else if (method === 'post_to_bill') {
-            // Post-to-Bill: Instant success (order created successfully)
-            console.log('📋 Post-to-Bill - Order posted successfully')
-            setPaymentView({
-              status: 'SUCCESS',
-              title: 'Order Posted to Bill!',
-              message: 'You can pay this bill later',
-              provider
-            })
-          }
-          
-          } else {
-            console.warn('⚠️ No order found in response')
-          throw new Error('Order not found')
-          }
-        
-      } catch (error) {
-        console.error('❌ Failed to load order data:', error)
-        
-        // Determine error handling based on method
-        if (method === 'cash' || method === 'post_to_bill') {
-          // For cash/post_to_bill, order creation likely failed
-          setPaymentView({
-            status: 'FAILED',
-            title: method === 'cash' ? 'Order Creation Failed' : 'Failed to Post Order to Bill',
-            message: error.response?.data?.message || error.message || 'Failed to create order. Please try again.',
-            provider
-          })
-        } else {
-          // For mpesa/paystack, order should exist - just fetch failed
-          setPaymentView({
-            status: 'FAILED',
-            title: 'Failed to Load Order',
-            message: 'Unable to load order details. Please try again.',
-            provider
-          })
-        }
+      } else {
+        setPaymentView({
+          status: 'FAILED',
+          title: 'Failed to Load Order',
+          message: 'Unable to load order details. Please try again.',
+          provider
+        })
       }
     }
-
-    loadOrderDataAndInitialize()
 
     return () => {
       clearPaymentTimers()
     }
-  }, [orderId, method, paymentId, errorParam, provider, startPaymentTracking])
+  }, [orderId, method, paymentId, errorParam, provider, startPaymentTracking, order, isLoadingOrder])
 
   const handleRetry = async () => {
     // Determine what to retry based on method
@@ -657,14 +649,14 @@ const PaymentStatus = () => {
       console.log('📦 Retrying order creation with payload:', orderPayload)
       
       // Attempt to create order again
-      const res = await orderAPI.createOrder(orderPayload)
-      const createdOrderId = res.data?.data?.orderId
+      const res = await createOrder.mutateAsync(orderPayload)
+      const createdOrderId = res?.orderId
       
       console.log('✅ Order created successfully:', createdOrderId)
       
-      // Fetch invoice
-      const orderDetail = await orderAPI.getOrderById(createdOrderId)
-      const inv = orderDetail.data?.data?.order?.invoiceId
+      // Fetch invoice - refetch order data
+      await refetchOrder()
+      const inv = order?.invoiceId
       const createdInvoiceId = inv?._id || inv
       
       // Update URL with new order details
@@ -676,13 +668,13 @@ const PaymentStatus = () => {
       navigate(`/payment-status?${params.toString()}`, { replace: true })
       
       // Reload order data and show success
-      const order = orderDetail?.data?.data?.order
-      if (order) {
-        if (order.pricing) {
-          setOrderBreakdown(order.pricing)
+      const orderData = await refetchOrder()
+      if (orderData?.data) {
+        if (orderData.data.pricing) {
+          setOrderBreakdown(orderData.data.pricing)
         }
-        if (order.items && order.items.length > 0) {
-          setCart({ items: order.items })
+        if (orderData.data.items && orderData.data.items.length > 0) {
+          setCart({ items: orderData.data.items })
         }
       }
       
@@ -722,18 +714,18 @@ const PaymentStatus = () => {
       console.log('🔄 Retrying payment for method:', method)
       
       // Call payInvoice API to retry payment
-      const res = await paymentAPI.payInvoice({ 
+      const res = await payInvoice.mutateAsync({ 
         invoiceId, 
         method: method === 'mpesa' ? 'mpesa_stk' : 'paystack_card',
         payerPhone: method === 'mpesa' ? payerPhone : undefined,
         payerEmail: method === 'paystack' ? payerEmail : undefined
       })
       
-      if (res.data?.success) {
-        const newPaymentId = res.data?.data?.paymentId
-        const newCheckoutRequestId = res.data?.data?.daraja?.checkoutRequestId
-        const newReference = res.data?.data?.reference
-        const newAuthorizationUrl = res.data?.data?.authorizationUrl
+      if (res?.success) {
+        const newPaymentId = res?.data?.paymentId
+        const newCheckoutRequestId = res?.data?.daraja?.checkoutRequestId
+        const newReference = res?.data?.reference
+        const newAuthorizationUrl = res?.data?.authorizationUrl
         
         // Reset payment status to PENDING and restart tracking
         setPaymentView({ 

@@ -72,3 +72,22 @@ export const useDeleteUser = () => {
     })
 }
 
+// Admin: Create customer
+export const useAdminCreateCustomer = () => {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async (customerData) => {
+            const response = await userAPI.adminCreateCustomer(customerData)
+            return response.data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['users'] })
+            toast.success('Customer created successfully')
+        },
+        onError: (error) => {
+            console.error('Error creating customer:', error)
+            toast.error(error.response?.data?.message || 'Failed to create customer')
+        }
+    })
+}

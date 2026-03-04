@@ -1,47 +1,31 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { orderAPI } from '../../api'
 import OrderStatusBadge from '../../components/common/OrderStatusBadge'
 import PaymentStatusBadge from '../../components/common/PaymentStatusBadge'
 import { FiArrowLeft, FiPrinter, FiMoreVertical, FiUser, FiCreditCard, FiDownload, FiCheckCircle, FiBox, FiTruck, FiCalendar, FiMapPin } from 'react-icons/fi'
-import toast from 'react-hot-toast'
+import { useGetOrderById, useUpdateOrderStatus } from '../../hooks/useOrders'
 
 
 const OrderDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [order, setOrder] = useState(null)
+  const { data: order, isLoading: loading, refetch } = useGetOrderById(id)
+  const updateOrderStatus = useUpdateOrderStatus()
   const [status, setStatus] = useState('PLACED')
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true)
-      const res = await orderAPI.getOrderById(id)
-      const ord = res.data?.data?.order
-      setOrder(ord)
-      setStatus(ord?.status || 'PLACED')
-    } catch {
-      toast.error('Failed to load order')
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    if (order) {
+      setStatus(order?.status || 'PLACED')
     }
-  }, [id])
-
-  useEffect(() => { load() }, [load])
+  }, [order])
 
   const handleUpdateStatus = async () => {
     try {
-      setSaving(true)
-      await orderAPI.updateOrderStatus(id, status)
-      toast.success('Order status updated')
-      await load()
-    } catch {
-      toast.error('Failed to update status')
-    } finally {
-      setSaving(false)
+      await updateOrderStatus.mutateAsync({ orderId: id, status })
+      refetch()
+    } catch (error) {
+      // Error handled by hook
     }
   }
 
@@ -357,9 +341,9 @@ const OrderDetail = () => {
                   <button 
                     className="btn-primary px-4 py-2 text-sm" 
                     onClick={handleUpdateStatus} 
-                    disabled={saving}
+                    disabled={updateOrderStatus.isPending}
                   >
-                    {saving ? 'Saving...' : 'Save'}
+                    {updateOrderStatus.isPending ? 'Saving...' : 'Save'}
                   </button>
                 </div>
               </div>

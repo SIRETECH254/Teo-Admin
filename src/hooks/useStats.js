@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { statsAPI } from '../api'
+import { statsAPI, orderAPI } from '../api'
 
 
 export const useOverviewStats = () => {
@@ -26,3 +26,15 @@ export const useAnalytics = (params) => {
     })
 }
 
+// Get recent orders for dashboard
+export const useGetRecentOrders = (params = { page: 1, limit: 5 }) => {
+    return useQuery({
+        queryKey: ['orders', 'recent', params],
+        queryFn: async () => {
+            const res = await orderAPI.getOrders(params)
+            return res.data?.data?.orders || []
+        },
+        staleTime: 1 * 60 * 1000, // 1 minute
+        gcTime: 5 * 60 * 1000, // 5 minutes
+    })
+}

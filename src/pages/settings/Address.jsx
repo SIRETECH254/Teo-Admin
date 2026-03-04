@@ -1,100 +1,57 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import { FiMapPin, FiPlus, FiEdit, FiTrash2, FiArrowLeft, FiHome, FiBriefcase, FiStar, FiX, FiAlertTriangle } from 'react-icons/fi'
-import toast from 'react-hot-toast'
 import AddressAutocomplete from '../../components/common/AddressAutocomplete'
-import api from '../../api'
+import { useGetAddresses, useCreateAddress, useUpdateAddress, useDeleteAddress, useSetDefaultAddress } from '../../hooks/useAddresses'
 
 const Address = () => {
   const navigate = useNavigate()
-  const [addresses, setAddresses] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { data: addresses = [], isLoading: loading } = useGetAddresses()
+  const createAddress = useCreateAddress()
+  const updateAddress = useUpdateAddress()
+  const deleteAddress = useDeleteAddress()
+  const setDefaultAddress = useSetDefaultAddress()
+  
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingAddress, setEditingAddress] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState({ open: false, address: null })
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  useEffect(() => {
-    const fetchAddresses = async () => {
-      try {
-        const res = await api.get('/addresses')
-        const list = res?.data?.data?.addresses || res?.data || []
-        setAddresses(list)
-      } catch (error) {
-        toast.error('Failed to load addresses')
-        console.error('Error fetching addresses:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchAddresses()
-  }, [])
 
   const handleAddAddress = async (addressData) => {
     try {
-      const res = await api.post('/addresses', addressData)
-      const created = res?.data?.data?.address || res?.data
-      if (created) setAddresses(prev => [created, ...prev])
+      await createAddress.mutateAsync(addressData)
       setShowAddModal(false)
-      toast.success('Address added successfully!')
-      // Mirror AddProduct success: ensure we are on the addresses page
       navigate('/settings/address')
     } catch (error) {
-      toast.error('Failed to add address')
-      console.error('Error adding address:', error)
+      // Error handled by hook
     }
   }
 
   const handleUpdateAddress = async (id, addressData) => {
     try {
-      const res = await api.put(`/addresses/${id}`, addressData)
-      const updated = res?.data?.data?.address || res?.data
-      if (updated) {
-        setAddresses(prev => prev.map(addr => (String(addr._id || addr.id) === String(id) ? updated : addr)))
-      }
+      await updateAddress.mutateAsync({ id, addressData })
       setEditingAddress(null)
-      toast.success('Address updated successfully!')
     } catch (error) {
-      toast.error('Failed to update address')
-      console.error('Error updating address:', error)
-    }
-  }
-
-  const handleDeleteAddress = async (id) => {
-    try {
-      await api.delete(`/addresses/${id}`)
-      setAddresses(prev => prev.filter(addr => String(addr._id || addr.id) !== String(id)))
-      toast.success('Address deleted successfully!')
-    } catch (error) {
-      toast.error('Failed to delete address')
-      console.error('Error deleting address:', error)
+      // Error handled by hook
     }
   }
 
   const confirmDeleteAddress = async () => {
     if (!confirmDelete.address) return
-    setIsDeleting(true)
     try {
       const id = confirmDelete.address._id || confirmDelete.address.id
-      await handleDeleteAddress(id)
+      await deleteAddress.mutateAsync(id)
       setConfirmDelete({ open: false, address: null })
     } catch (error) {
-      // error handled in handleDeleteAddress
-    } finally {
-      setIsDeleting(false)
+      // Error handled by hook
     }
   }
 
   const handleSetDefault = async (id) => {
     try {
-      await api.put(`/addresses/${id}/default`)
-      setAddresses(prev => prev.map(addr => ({ ...addr, isDefault: String(addr._id || addr.id) === String(id) })))
-      toast.success('Default address updated!')
+      await setDefaultAddress.mutateAsync(id)
     } catch (error) {
-      toast.error('Failed to update default address')
-      console.error('Error setting default address:', error)
+      // Error handled by hook
     }
   }
 
@@ -155,9 +112,9 @@ const Address = () => {
               <button
                 onClick={confirmDeleteAddress}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                disabled={isDeleting}
+                disabled={deleteAddress.isPending}
               >
-                {isDeleting ? 'Deleting...' : 'Delete'}
+                {deleteAddress.isPending ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>

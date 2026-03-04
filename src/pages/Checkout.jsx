@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { cartAPI, orderAPI, paymentAPI } from '../api'
+import { useQueryClient } from '@tanstack/react-query'
 import { useGetActivePackagingPublic } from '../hooks/usePackaging'
+import { useGetCart } from '../hooks/useCart'
+import { useCreateOrder } from '../hooks/useOrders'
+import { usePayInvoice } from '../hooks/usePayments'
+import { orderAPI } from '../api'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 import { FiEdit2, FiShoppingBag, FiClock, FiCreditCard, FiList } from 'react-icons/fi'
@@ -66,9 +70,12 @@ const Checkout = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
 
+  const queryClient = useQueryClient()
   const [currentStep, setCurrentStep] = useState(0)
-  const [cart, setCart] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const { data: cartData, isLoading: loading } = useGetCart()
+  const cart = cartData?.data
+  const createOrderMutation = useCreateOrder()
+  const payInvoice = usePayInvoice()
   const [creating, setCreating] = useState(false)
   const [paying, setPaying] = useState(false)
 
@@ -128,25 +135,14 @@ const Checkout = () => {
   
     const [selectedPackagingId, setSelectedPackagingId] = useState(null)
   
+    // Clear coupon if cart is empty
     useEffect(() => {
-      const load = async () => {
-        try {
-          const res = await cartAPI.getCart()
-          setCart(res.data?.data)
-          // If no items, clear persisted coupon
-          const items = res.data?.data?.items || []
-          if (!items || items.length === 0) {
-            try { localStorage.removeItem('appliedCoupon') } catch (err) { console.error('Storage error:', err) }
-            setCoupon(null)
-          }
-        } catch {
-          toast.error('Failed to load cart')
-        } finally {
-          setLoading(false)
-        }
+      const items = cart?.items || []
+      if (!items || items.length === 0) {
+        try { localStorage.removeItem('appliedCoupon') } catch (err) { console.error('Storage error:', err) }
+        setCoupon(null)
       }
-      load()
-    }, [])
+    }, [cart])
 
   // Cart protection - redirect to cart if empty
   useEffect(() => {
@@ -240,25 +236,21 @@ const Checkout = () => {
         metadata: {},
       }
 
-      const res = await orderAPI.createOrder(payload)
-      const createdOrderId = res.data?.data?.orderId
+      const res = await createOrderMutation.mutateAsync(payload)
+      const createdOrderId = res?.orderId
       setOrderId(createdOrderId)
 
-      // fetch invoice
-      const orderDetail = await orderAPI.getOrderById(createdOrderId)
-      const inv = orderDetail.data?.data?.order?.invoiceId
+      // fetch invoice - use queryClient to fetch the order
+      const orderDetail = await queryClient.fetchQuery({
+        queryKey: ['order', createdOrderId],
+        queryFn: async () => {
+          const response = await orderAPI.getOrderById(createdOrderId)
+          return response.data?.data?.order
+        }
+      })
+      const inv = orderDetail?.invoiceId
       const createdInvoiceId = inv?._id || inv
       setInvoiceId(createdInvoiceId)
-      
-      // Refresh cart after successful order creation (items will be removed by backend)
-      try {
-        const cartRes = await cartAPI.getCart()
-        setCart(cartRes.data?.data)
-        console.log('✅ Cart refreshed after order creation')
-      } catch (cartError) {
-        console.warn('Failed to refresh cart:', cartError)
-        // Don't fail the order creation if cart refresh fails
-      }
       
       // Clear applied coupon from localStorage
       try {
@@ -284,10 +276,10 @@ const Checkout = () => {
       setPaying(true)
       if (paymentMethod === 'mpesa_stk') {
         if (!payerPhone) return toast.error('Phone required')
-        const res = await paymentAPI.payInvoice({ invoiceId: targetInvoiceId, method: 'mpesa_stk', payerPhone })
-        if (res.data?.success) {
-          const paymentId = res.data?.data?.paymentId
-          const checkoutRequestId = res.data?.data?.daraja?.checkoutRequestId
+        const res = await payInvoice.mutateAsync({ invoiceId: targetInvoiceId, method: 'mpesa_stk', payerPhone })
+        if (res?.success) {
+          const paymentId = res?.data?.paymentId
+          const checkoutRequestId = res?.data?.daraja?.checkoutRequestId
           
           // Navigate to payment status page with method parameter
           const params = new URLSearchParams({
@@ -305,9 +297,9 @@ const Checkout = () => {
         }
       } else if (paymentMethod === 'paystack_card') {
         if (!payerEmail) return toast.error('Email required')
-        const res = await paymentAPI.payInvoice({ invoiceId: targetInvoiceId, method: 'paystack_card', payerEmail })
-        const paymentId = res.data?.data?.paymentId
-        const reference = res.data?.data?.reference
+        const res = await payInvoice.mutateAsync({ invoiceId: targetInvoiceId, method: 'paystack_card', payerEmail })
+        const paymentId = res?.data?.paymentId
+        const reference = res?.data?.reference
         
         // Navigate to payment status page with method parameter
         const params = new URLSearchParams({
@@ -321,7 +313,7 @@ const Checkout = () => {
         })
         navigate(`/payment-status?${params.toString()}`)
         
-        const url = res.data?.data?.authorizationUrl
+        const url = res?.data?.authorizationUrl
         if (url) window.open(url, '_blank')
       }
     } catch (e) {
@@ -363,21 +355,17 @@ const Checkout = () => {
           console.warn('Failed to save checkout data:', e)
         }
 
-        const res = await orderAPI.createOrder(payload)
-        const createdOrderId = res.data?.data?.orderId
-        const orderDetail = await orderAPI.getOrderById(createdOrderId)
-        const inv = orderDetail.data?.data?.order?.invoiceId
+        const res = await createOrderMutation.mutateAsync(payload)
+        const createdOrderId = res?.orderId
+        const orderDetail = await queryClient.fetchQuery({
+          queryKey: ['order', createdOrderId],
+          queryFn: async () => {
+            const response = await orderAPI.getOrderById(createdOrderId)
+            return response.data?.data?.order
+          }
+        })
+        const inv = orderDetail?.invoiceId
         const createdInvoiceId = inv?._id || inv
-        
-        // Refresh cart after successful order creation (backend clears cart items)
-        try {
-          const cartRes = await cartAPI.getCart()
-          setCart(cartRes.data?.data)
-          console.log('✅ Cart refreshed after order creation')
-        } catch (cartError) {
-          console.warn('Failed to refresh cart:', cartError)
-          // Don't fail the order creation if cart refresh fails
-        }
         
         // Clear applied coupon from localStorage
         try {
@@ -949,9 +937,9 @@ const Checkout = () => {
             <button 
               className="btn-primary flex items-center gap-2" 
               onClick={handleCompleteOrder} 
-              disabled={creating || paying}
+              disabled={creating || paying || createOrderMutation.isPending || payInvoice.isPending}
             >
-              {creating || paying ? (
+              {creating || paying || createOrderMutation.isPending || payInvoice.isPending ? (
                 <>
                   <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

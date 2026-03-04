@@ -1,28 +1,21 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import api from '../../api'
+import { useGetRoleById, useUpdateRole } from '../../hooks/useRoles'
 
 
 const EditRole = () => {
     const { id } = useParams()
     const navigate = useNavigate()
+    const { data: role, isLoading: loading } = useGetRoleById(id)
+    const updateRole = useUpdateRole()
+    
     const [form, setForm] = useState({ name: '', description: '', isActive: true })
-    const [loading, setLoading] = useState(true)
-    const [saving, setSaving] = useState(false)
 
     useEffect(() => {
-        const load = async () => {
-            setLoading(true)
-            try {
-                const res = await api.get(`/roles/${id}`)
-                const role = res.data?.data?.role
-                setForm({ name: role?.name || '', description: role?.description || '', isActive: !!role?.isActive })
-            } finally {
-                setLoading(false)
-            }
+        if (role) {
+            setForm({ name: role?.name || '', description: role?.description || '', isActive: !!role?.isActive })
         }
-        load()
-    }, [id])
+    }, [role])
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target
@@ -31,12 +24,14 @@ const EditRole = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
-        setSaving(true)
         try {
-            await api.put(`/roles/${id}`, { name: form.name, description: form.description, isActive: form.isActive })
+            await updateRole.mutateAsync({ 
+                roleId: id, 
+                roleData: { name: form.name, description: form.description, isActive: form.isActive } 
+            })
             navigate('/roles')
-        } finally {
-            setSaving(false)
+        } catch (error) {
+            // Error handled by hook
         }
     }
 
@@ -66,7 +61,7 @@ const EditRole = () => {
                         <span>Active</span>
                     </label>
                     <div className="pt-2">
-                        <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+                        <button type="submit" className="btn-primary" disabled={updateRole.isPending}>{updateRole.isPending ? 'Saving...' : 'Save'}</button>
                     </div>
                 </form>
             </div>

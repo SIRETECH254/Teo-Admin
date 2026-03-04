@@ -137,6 +137,27 @@ const EditProduct = () => {
 
             // Set existing images
             setExistingImages(product.images || [])
+            
+            // Load existing selectedVariantOptions and transform to UI format
+            if (product.selectedVariantOptions && Array.isArray(product.selectedVariantOptions)) {
+                const uiFormat = {}
+                product.selectedVariantOptions.forEach(sel => {
+                    // Handle both object and string variantId
+                    const variantId = typeof sel.variantId === 'object' ? sel.variantId._id : sel.variantId
+                    // Handle both object and string optionIds
+                    const optionIds = Array.isArray(sel.optionIds) 
+                        ? sel.optionIds.map(optId => typeof optId === 'object' ? optId._id : optId)
+                        : []
+                    if (variantId && optionIds.length > 0) {
+                        uiFormat[variantId] = optionIds
+                    }
+                })
+                setSelectedVariantOptions(uiFormat)
+                console.log('Loaded selectedVariantOptions:', uiFormat)
+            } else {
+                setSelectedVariantOptions({})
+            }
+            
             setIsLoading(false)
         }
     }, [product]) // Removed formData.variants from dependencies to prevent infinite loop
@@ -281,52 +302,119 @@ const EditProduct = () => {
         }))
     }, [])
 
+    // Transform selectedVariantOptions to backend format
+    const buildSelectedVariantOptions = useCallback(() => {
+        return Object.entries(selectedVariantOptions)
+            .filter(([variantId, optionIds]) => {
+                // Check if variant is in formData.variants
+                const isVariantSelected = formData.variants.some(item => {
+                    const itemId = typeof item === 'object' && item._id ? item._id : item
+                    return itemId === variantId
+                })
+                return isVariantSelected && Array.isArray(optionIds) && optionIds.length > 0
+            })
+            .map(([variantId, optionIds]) => {
+                // Validate that all optionIds belong to the variant
+                const variant = variants.find(v => {
+                    const vId = typeof v._id === 'object' ? v._id._id : v._id
+                    return vId === variantId
+                })
+                if (variant && variant.options) {
+                    const validOptionIds = variant.options.map(opt => {
+                        const optId = typeof opt._id === 'object' ? opt._id._id : opt._id
+                        return optId.toString()
+                    })
+                    const filteredOptionIds = optionIds.filter(optId => {
+                        const optIdStr = typeof optId === 'object' ? optId._id : optId
+                        return validOptionIds.includes(optIdStr.toString())
+                    })
+                    if (filteredOptionIds.length > 0) {
+                        return {
+                            variantId,
+                            optionIds: filteredOptionIds
+                        }
+                    }
+                }
+                return null
+            })
+            .filter(Boolean) // Remove null entries
+    }, [selectedVariantOptions, formData.variants, variants])
+
     const handleSubmit = async (e) => {
         e.preventDefault()
 
         try {
             console.log('=== FORM SUBMISSION DEBUG ===')
             console.log('Form data:', formData)
+            console.log('Selected variant options:', selectedVariantOptions)
             console.log('New images count:', newImages.length)
             console.log('Existing images count:', existingImages.length)
 
-            const fd = new FormData()
+            // Build selectedVariantOptions in backend format
+            const selectedVariantOptionsFormatted = buildSelectedVariantOptions()
+            console.log('Formatted selectedVariantOptions:', selectedVariantOptionsFormatted)
 
-            // append non-file fields (strings/numbers)
-            Object.keys(formData).forEach(key => {
-                if (key === 'categories' || key === 'collections' || key === 'tags' || key === 'variants' || key === 'features') {
-                    fd.append(key, JSON.stringify(formData[key]))
-                } else {
-                    fd.append(key, formData[key])
-                }
-            })
+            // Conditional payload: FormData if new images exist, JSON otherwise
+            let payload
+            if (newImages.length > 0) {
+                // Create FormData when new images are present
+                const fd = new FormData()
 
-            // IMPORTANT: append each new file individually (DO NOT append the array)
-            newImages.forEach((file) => {
-                fd.append("images", file, file.name) // 'images' must match Multer field name
-            })
+                // append non-file fields (strings/numbers)
+                Object.keys(formData).forEach(key => {
+                    if (key === 'categories' || key === 'collections' || key === 'tags' || key === 'variants' || key === 'features') {
+                        fd.append(key, JSON.stringify(formData[key]))
+                    } else {
+                        fd.append(key, formData[key])
+                    }
+                })
 
-            // send which existing images to KEEP (so backend knows not to delete them)
-            // Include both document IDs and Cloudinary public IDs for robustness
-            fd.append("keepImagePublicIds", JSON.stringify(existingImages.map(img => img.public_id).filter(Boolean)))
-            fd.append("keepImageDocIds", JSON.stringify(existingImages.map(img => img._id).filter(Boolean)))
-            // Backward compatibility for older backend handlers (optional)
-            fd.append("keepImages", JSON.stringify(existingImages.map(img => img.public_id).filter(Boolean)))
+                // Add selectedVariantOptions as JSON string
+                fd.append('selectedVariantOptions', JSON.stringify(selectedVariantOptionsFormatted))
 
-            console.log('=== FINAL FORMDATA DEBUG ===')
-            console.log('FormData entries:')
-            for (let [key, value] of fd.entries()) {
-                if (key === 'images') {
-                    console.log(`  ${key}: File - ${value.name} (${value.size} bytes, type: ${value.type})`)
-                } else if (key === 'keepImages') {
-                    console.log(`  ${key}: ${value} (length: ${JSON.parse(value).length})`)
-                } else {
-                    console.log(`  ${key}: ${value}`)
+                // IMPORTANT: append each new file individually (DO NOT append the array)
+                newImages.forEach((file) => {
+                    fd.append("images", file, file.name) // 'images' must match Multer field name
+                })
+
+                // send which existing images to KEEP (so backend knows not to delete them)
+                // Include both document IDs and Cloudinary public IDs for robustness
+                fd.append("keepImagePublicIds", JSON.stringify(existingImages.map(img => img.public_id).filter(Boolean)))
+                fd.append("keepImageDocIds", JSON.stringify(existingImages.map(img => img._id).filter(Boolean)))
+                // Backward compatibility for older backend handlers (optional)
+                fd.append("keepImages", JSON.stringify(existingImages.map(img => img.public_id).filter(Boolean)))
+
+                payload = fd
+            } else {
+                // Send JSON when no new images
+                payload = {
+                    ...formData,
+                    selectedVariantOptions: selectedVariantOptionsFormatted,
+                    keepImagePublicIds: existingImages.map(img => img.public_id).filter(Boolean),
+                    keepImageDocIds: existingImages.map(img => img._id).filter(Boolean),
+                    keepImages: existingImages.map(img => img.public_id).filter(Boolean) // backward compat
                 }
             }
-            console.log('FormData total size:', [...fd.entries()].length, 'entries')
 
-            await updateProduct.mutateAsync({ productId: id, productData: fd })
+            console.log('=== FINAL PAYLOAD DEBUG ===')
+            if (payload instanceof FormData) {
+                console.log('Payload type: FormData')
+                for (let [key, value] of payload.entries()) {
+                    if (key === 'images') {
+                        console.log(`  ${key}: File - ${value.name} (${value.size} bytes, type: ${value.type})`)
+                    } else if (key === 'keepImages' || key === 'selectedVariantOptions' || key === 'keepImagePublicIds' || key === 'keepImageDocIds') {
+                        console.log(`  ${key}: ${value} (length: ${JSON.parse(value).length})`)
+                    } else {
+                        console.log(`  ${key}: ${value}`)
+                    }
+                }
+                console.log('FormData total size:', [...payload.entries()].length, 'entries')
+            } else {
+                console.log('Payload type: JSON')
+                console.log('Payload:', payload)
+            }
+
+            await updateProduct.mutateAsync({ productId: id, productData: payload })
             navigate('/products')
         } catch (error) {
             console.error('Submit error:', error)
@@ -553,17 +641,17 @@ const EditProduct = () => {
                             <h3 className="text-sm font-medium text-blue-900 mb-2">Current Product Variants</h3>
                             <p className="text-sm text-blue-700">
                                 This product currently has {formData.variants.length} variant{formData.variants.length !== 1 ? 's' : ''} attached.
-                                You can modify the selection below.
+                                Select variants and their specific options to generate SKUs.
                             </p>
                         </div>
 
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-3">
                                 <FiBox className="inline mr-2 h-4 w-4" />
-                                Select Variants
+                                Select Variants and Options
                             </label>
                             <p className="text-sm text-gray-600 mb-4">
-                                Select variants to create different product options (e.g., Size, Color)
+                                Select variants and their specific options. SKUs will be auto-generated based on your selections.
                             </p>
 
                             {variantsData?.isLoading ? (
@@ -572,10 +660,10 @@ const EditProduct = () => {
                                     <p className="text-sm text-gray-500">Loading variants...</p>
                                 </div>
                             ) : variants.length > 0 ? (
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                <div className="space-y-4">
                                     {variants.map(variant => {
                                         // Handle both string IDs and variant objects in formData.variants
-                                        const isSelected = formData.variants.some(item => {
+                                        const isVariantSelected = formData.variants.some(item => {
                                             if (typeof item === 'string') {
                                                 return item === variant._id
                                             } else if (typeof item === 'object' && item._id) {
@@ -583,40 +671,75 @@ const EditProduct = () => {
                                             }
                                             return false
                                         })
+                                        const selectedOptions = selectedVariantOptions[variant._id] || []
                                         
-                                        // Debug: Check variant selection state
-                                        console.log(`Variant ${variant.name} (${variant._id}): isSelected = ${isSelected}`)
                                         return (
-                                            <label key={variant._id} className={`flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors ${
-                                                isSelected 
-                                                    ? 'border-primary bg-primary/5' 
-                                                    : 'border-gray-200'
-                                            }`}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isSelected}
-                                                    onChange={(e) => handleArrayChange('variants', variant._id, e.target.checked)}
-                                                    className="rounded border-gray-300 text-primary focus:ring-primary"
-                                                />
-                                                <div className="ml-3 flex-1">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className={`text-sm font-medium ${
-                                                            isSelected ? 'text-primary' : 'text-gray-900'
-                                                        }`}>
-                                                            {variant.name}
-                                                        </span>
-                                                        {isSelected && (
-                                                            <FiCheck className="h-4 w-4 text-primary" />
+                                            <div key={variant._id} className="border border-gray-200 rounded-lg p-4">
+                                                <label className="flex items-center cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isVariantSelected}
+                                                        onChange={(e) => handleArrayChange('variants', variant._id, e.target.checked)}
+                                                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                                                    />
+                                                    <div className="ml-3 flex-1">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className={`text-sm font-medium ${
+                                                                isVariantSelected ? 'text-primary' : 'text-gray-900'
+                                                            }`}>
+                                                                {variant.name}
+                                                            </span>
+                                                            {isVariantSelected && selectedOptions.length > 0 && (
+                                                                <span className="text-xs text-primary font-medium">
+                                                                    {selectedOptions.length} option{selectedOptions.length !== 1 ? 's' : ''} selected
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {variant.options?.length > 0 && !isVariantSelected && (
+                                                            <div className="text-xs text-gray-500 mt-1">
+                                                                {variant.options.length} option{variant.options.length !== 1 ? 's' : ''} available
+                                                            </div>
                                                         )}
                                                     </div>
-                                                    {variant.options?.length > 0 && (
-                                                        <div className="text-xs text-gray-500 mt-1">
-                                                            {variant.options.slice(0, 3).map(opt => opt.value).join(', ')}
-                                                            {variant.options.length > 3 && ` +${variant.options.length - 3} more`}
+                                                </label>
+                                                
+                                                {/* Show options when variant is selected */}
+                                                {isVariantSelected && variant.options && variant.options.length > 0 && (
+                                                    <div className="ml-7 mt-4 pt-4 border-t border-gray-200">
+                                                        <label className="block text-xs font-medium text-gray-700 mb-3">
+                                                            Select Options for {variant.name}:
+                                                        </label>
+                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                                            {variant.options.map(option => {
+                                                                const isOptionSelected = selectedOptions.includes(option._id)
+                                                                return (
+                                                                    <label 
+                                                                        key={option._id} 
+                                                                        className={`flex items-center p-2 rounded border-2 cursor-pointer transition-all ${
+                                                                            isOptionSelected
+                                                                                ? 'border-primary bg-primary/5'
+                                                                                : 'border-gray-200 hover:border-gray-300'
+                                                                        }`}
+                                                                    >
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={isOptionSelected}
+                                                                            onChange={(e) => handleVariantOptionToggle(variant._id, option._id, e.target.checked)}
+                                                                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                                                                        />
+                                                                        <span className="ml-2 text-sm text-gray-700">{option.value}</span>
+                                                                    </label>
+                                                                )
+                                                            })}
                                                         </div>
-                                                    )}
-                                                </div>
-                                            </label>
+                                                        {selectedOptions.length === 0 && (
+                                                            <p className="text-xs text-amber-600 mt-2">
+                                                                ⚠️ No options selected. A default SKU will be created if no options are chosen.
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
                                         )
                                     })}
                                 </div>
@@ -633,53 +756,19 @@ const EditProduct = () => {
 
                         {/* Selected Variants Summary */}
                         {formData.variants.length > 0 && (
-                            <div className="space-y-3">
-                                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                                    <p className="text-sm text-green-800">
-                                        <FiCheck className="inline mr-2 h-4 w-4" />
-                                        {formData.variants.length} variant{formData.variants.length !== 1 ? 's' : ''} selected.
-                                        SKUs will be auto-generated based on variant combinations.
-                                    </p>
-                                </div>
-                                
-                                {/* Selected Variant Names */}
-                                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                                    <h4 className="text-sm font-medium text-gray-900 mb-3">
-                                        <FiBox className="inline mr-2 h-4 w-4" />
-                                        Selected Variants:
-                                    </h4>
-                                    <div className="flex flex-wrap gap-2">
-                                        {formData.variants.length > 0 ? (
-                                            formData.variants.map((variantId, index) => {
-                                                // Handle both string IDs and variant objects
-                                                let variant = null
-                                                if (typeof variantId === 'string') {
-                                                    variant = variants.find(v => v._id === variantId)
-                                                } else if (typeof variantId === 'object' && variantId._id) {
-                                                    variant = variants.find(v => v._id === variantId._id)
-                                                }
-                                                
-                                                return (
-                                                    <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary/10 text-primary border border-primary/20">
-                                                        <FiCheck className="mr-1 h-3 w-3" />
-                                                        {variant?.name || 'Unknown Variant'}
-                                                        {variant?.options && variant.options.length > 0 && (
-                                                            <span className="ml-1 text-xs opacity-75">
-                                                                ({variant.options.length} options)
-                                                            </span>
-                                                        )}
-                                                    </span>
-                                                )
-                                            })
-                                        ) : (
-                                            <p className="text-sm text-gray-500 italic">No variants selected</p>
-                                        )}
-                                    </div>
-                                    {variants.length === 0 && (
-                                        <p className="text-sm text-gray-500 mt-2">
-                                            Loading variant data... If this persists, please refresh the page.
+                            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="flex items-start">
+                                    <FiBox className="inline mr-2 h-4 w-4 mt-0.5 text-blue-600" />
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium text-blue-900 mb-1">
+                                            {formData.variants.length} variant{formData.variants.length !== 1 ? 's' : ''} selected
                                         </p>
-                                    )}
+                                        <p className="text-xs text-blue-700">
+                                            {Object.keys(selectedVariantOptions).length > 0
+                                                ? 'SKUs will be auto-generated based on selected option combinations.'
+                                                : 'Select options for each variant to generate SKUs, or leave empty for a default SKU.'}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -694,8 +783,19 @@ const EditProduct = () => {
                                     </h4>
                                     <div className="p-4 bg-white border border-gray-200 rounded-lg">
                                         <VariantSelector
-                                            variants={variants.filter(v => formData.variants.includes(v._id))}
-                                            selectedOptions={selectedVariantOptions}
+                                            variants={variants.filter(v => {
+                                                const variantId = typeof v._id === 'object' ? v._id._id : v._id
+                                                return formData.variants.some(item => {
+                                                    const itemId = typeof item === 'object' ? item._id : item
+                                                    return itemId === variantId
+                                                })
+                                            })}
+                                            selectedOptions={Object.fromEntries(
+                                                Object.entries(selectedVariantOptions).map(([variantId, optionIds]) => [
+                                                    variantId,
+                                                    Array.isArray(optionIds) && optionIds.length > 0 ? optionIds[0] : null
+                                                ])
+                                            )}
                                             onOptionSelect={handleVariantOptionSelect}
                                             className="max-w-md"
                                         />

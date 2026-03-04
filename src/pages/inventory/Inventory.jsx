@@ -3,7 +3,6 @@ import { FiSearch, FiFilter, FiList, FiX, FiPackage, FiArrowUpCircle, FiArrowDow
 import { useGetProducts, useUpdateSKU } from '../../hooks/useProducts'
 import { useGetBrands } from '../../hooks/useBrands'
 import { useGetCategories } from '../../hooks/useCategories'
-import { useGetVariants } from '../../hooks/useVariants'
 import Pagination from '../../components/common/Pagination'
 import toast from 'react-hot-toast'
 
@@ -49,7 +48,6 @@ const Inventory = () => {
   const { data, isLoading } = useGetProducts(params)
   const { data: brandsData } = useGetBrands({ limit: 100 })
   const { data: categoriesData } = useGetCategories({ limit: 100 })
-  const { data: variantsData } = useGetVariants({ limit: 1000 })
   const updateSku = useUpdateSKU()
 
 
@@ -65,29 +63,23 @@ const Inventory = () => {
     setExpanded((prev) => ({ ...prev, [productId]: !prev[productId] }))
   }
 
-  // Build quick lookups for variant name and option value by id
-  const variantNameById = useMemo(() => {
-    const list = variantsData?.data?.data || variantsData?.data || variantsData || []
-    const map = {}
-    list.forEach(v => { map[v._id] = v.name })
-    return map
-  }, [variantsData])
-
-  const optionValueById = useMemo(() => {
-    const list = variantsData?.data?.data || variantsData?.data || variantsData || []
-    const map = {}
-    list.forEach(v => {
-      ;(v.options || []).forEach(opt => { map[opt._id] = opt.value })
-    })
-    return map
-  }, [variantsData])
-
+  // Render SKU attributes using populated data from backend
+  // Backend already populates variantId and optionId as objects with name/value
   const renderSkuAttributes = (sku) => {
-    const attrs = (sku.attributes || []).map(a => {
-      const variantName = variantNameById[a.variantId] || 'Option'
-      const optionValue = optionValueById[a.optionId] || '-'
+    if (!sku.attributes || sku.attributes.length === 0) {
+      return sku.skuCode || '-'
+    }
+    
+    const attrs = sku.attributes.map(attr => {
+      // Backend populates variantId and optionId as objects or IDs
+      const variant = typeof attr.variantId === 'object' ? attr.variantId : null
+      const option = typeof attr.optionId === 'object' ? attr.optionId : null
+      
+      const variantName = variant?.name || 'Option'
+      const optionValue = option?.value || '-'
       return `${variantName}: ${optionValue}`
     })
+    
     return attrs.length ? attrs.join(', ') : (sku.skuCode || '-')
   }
 
@@ -355,13 +347,11 @@ const Inventory = () => {
               {skuManagement.sku?.attributes && skuManagement.sku.attributes.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {skuManagement.sku.attributes.map(attr => {
-                    // Find variant in the variants array
-                    const variant = variantsData?.data?.data?.find(v => v._id === attr.variantId) || 
-                                  variantsData?.data?.find(v => v._id === attr.variantId) ||
-                                  variantsData?.find(v => v._id === attr.variantId)
-                    const option = variant?.options?.find(o => o._id === attr.optionId)
+                    // Backend already populates variantId and optionId as objects
+                    const variant = typeof attr.variantId === 'object' ? attr.variantId : null
+                    const option = typeof attr.optionId === 'object' ? attr.optionId : null
                     return (
-                      <span key={attr._id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                      <span key={attr._id || Math.random()} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                         {variant?.name || 'Unknown'}: {option?.value || 'Unknown'}
                       </span>
                     )

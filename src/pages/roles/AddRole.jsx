@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import api from '../../api'
+import { useCreateRole } from '../../hooks/useRoles'
 
 
 const AddRole = () => {
     const navigate = useNavigate()
+    const createRole = useCreateRole()
     const [form, setForm] = useState({ name: '', description: '' })
-    const [isSubmitting, setIsSubmitting] = useState(false)
 
     const handleChange = (e) => {
         const { name, value } = e.target
@@ -16,12 +16,11 @@ const AddRole = () => {
     const handleSubmit = async (e) => {
         e.preventDefault()
         if (!form.name.trim()) return
-        setIsSubmitting(true)
         try {
-            await api.post('/roles', { name: form.name, description: form.description })
+            await createRole.mutateAsync({ name: form.name, description: form.description })
             navigate('/roles')
-        } finally {
-            setIsSubmitting(false)
+        } catch (error) {
+            // Error handled by hook
         }
     }
 
@@ -39,7 +38,7 @@ const AddRole = () => {
                         <textarea name="description" value={form.description} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none" rows={3} placeholder="What can this role do?" />
                     </div>
                     <div className="pt-2 flex gap-3">
-                        <button type="submit" className="btn-primary flex-1" disabled={isSubmitting}>{isSubmitting ? 'Saving...' : 'Create Role'}</button>
+                        <button type="submit" className="btn-primary flex-1" disabled={createRole.isPending}>{createRole.isPending ? 'Saving...' : 'Create Role'}</button>
                         <button type="button" onClick={() => navigate('/roles')} className="btn-outline">Cancel</button>
                     </div>
                 </form>

@@ -34,18 +34,9 @@ export const useCreateProduct = () => {
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: async (formData) => {
-            console.log('useCreateProduct - Received FormData')
-            console.log('useCreateProduct - FormData entries:')
-            for (let [key, value] of formData.entries()) {
-                if (key === 'images') {
-                    console.log(`  ${key}: File object - ${value.name} (${value.size} bytes)`)
-                } else {
-                    console.log(`  ${key}: ${value}`)
-                }
-            }
-
-            const response = await productAPI.createProduct(formData)
+        mutationFn: async (payload) => {
+            // Handle both FormData (with images) and JSON (without images)
+            const response = await productAPI.createProduct(payload)
             return response.data
         },
         onSuccess: (data) => {

@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { userAPI } from '../../api'
+import { useAdminCreateCustomer } from '../../hooks/useUsers'
 
 
 const AddCustomer = () => {
     const navigate = useNavigate()
+    const createCustomer = useAdminCreateCustomer()
     const [form, setForm] = useState({ name: '', email: '', phone: '' })
-    const [isSubmitting, setIsSubmitting] = useState(false)
 
     const handleChange = (e) => {
         const { name, value } = e.target
@@ -16,14 +16,11 @@ const AddCustomer = () => {
     const handleSubmit = async (e) => {
         e.preventDefault()
         if (!form.email || !form.phone) return
-        setIsSubmitting(true)
         try {
-            await userAPI.adminCreateCustomer({ name: form.name, email: form.email, phone: form.phone })
+            await createCustomer.mutateAsync({ name: form.name, email: form.email, phone: form.phone })
             navigate('/customers')
-        } catch (err) {
-            // errors are handled by interceptor/toasts upstream if any
-        } finally {
-            setIsSubmitting(false)
+        } catch (error) {
+            // Error handled by hook
         }
     }
 
@@ -71,8 +68,8 @@ const AddCustomer = () => {
                     </div>
 
                     <div className="pt-2 flex gap-3">
-                        <button type="submit" className="btn-primary flex-1" disabled={isSubmitting}>
-                            {isSubmitting ? 'Creating...' : 'Create Customer'}
+                        <button type="submit" className="btn-primary flex-1" disabled={createCustomer.isPending}>
+                            {createCustomer.isPending ? 'Creating...' : 'Create Customer'}
                         </button>
                         <button type="button" onClick={() => navigate('/customers')} className="btn-outline">
                             Cancel
