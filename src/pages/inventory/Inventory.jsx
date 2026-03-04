@@ -64,19 +64,28 @@ const Inventory = () => {
   }
 
   // Render SKU attributes using populated data from backend
-  // Backend already populates variantId and optionId as objects with name/value
+  // Backend populates variantId and optionId as full objects with name/value
+  // optionId can be: object with _id and value, or just a string ID
   const renderSkuAttributes = (sku) => {
     if (!sku.attributes || sku.attributes.length === 0) {
       return sku.skuCode || '-'
     }
     
     const attrs = sku.attributes.map(attr => {
-      // Backend populates variantId and optionId as objects or IDs
-      const variant = typeof attr.variantId === 'object' ? attr.variantId : null
-      const option = typeof attr.optionId === 'object' ? attr.optionId : null
+      // Backend populates variantId as object with name and options
+      const variant = typeof attr.variantId === 'object' && attr.variantId !== null 
+        ? attr.variantId 
+        : null
+      
+      // Backend populates optionId as full Option object with _id and value
+      // Handle both populated object format and string ID format
+      const option = typeof attr.optionId === 'object' && attr.optionId !== null
+        ? attr.optionId
+        : null
       
       const variantName = variant?.name || 'Option'
-      const optionValue = option?.value || '-'
+      // Extract value from populated option object, or use '-' if not available
+      const optionValue = option?.value || option?._id || '-'
       return `${variantName}: ${optionValue}`
     })
     
@@ -347,12 +356,24 @@ const Inventory = () => {
               {skuManagement.sku?.attributes && skuManagement.sku.attributes.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {skuManagement.sku.attributes.map(attr => {
-                    // Backend already populates variantId and optionId as objects
-                    const variant = typeof attr.variantId === 'object' ? attr.variantId : null
-                    const option = typeof attr.optionId === 'object' ? attr.optionId : null
+                    // Backend populates variantId as object with name and options
+                    const variant = typeof attr.variantId === 'object' && attr.variantId !== null
+                      ? attr.variantId
+                      : null
+                    
+                    // Backend populates optionId as full Option object with _id and value
+                    // Handle both populated object format and string ID format
+                    const option = typeof attr.optionId === 'object' && attr.optionId !== null
+                      ? attr.optionId
+                      : null
+                    
+                    const variantName = variant?.name || 'Unknown'
+                    // Extract value from populated option object
+                    const optionValue = option?.value || option?._id || 'Unknown'
+                    
                     return (
                       <span key={attr._id || Math.random()} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
-                        {variant?.name || 'Unknown'}: {option?.value || 'Unknown'}
+                        {variantName}: {optionValue}
                       </span>
                     )
                   })}
