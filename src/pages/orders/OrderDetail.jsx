@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import OrderStatusBadge from '../../components/common/OrderStatusBadge'
-import PaymentStatusBadge from '../../components/common/PaymentStatusBadge'
+import StatusBadge from '../../components/common/StatusBadge'
 import { FiArrowLeft, FiPrinter, FiMoreVertical, FiUser, FiCreditCard, FiDownload, FiCheckCircle, FiBox, FiTruck, FiCalendar, FiMapPin } from 'react-icons/fi'
 import { useGetOrderById, useUpdateOrderStatus } from '../../hooks/useOrders'
 
@@ -161,11 +160,11 @@ const OrderDetail = () => {
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500">Payment:</span>
-                  <PaymentStatusBadge status={order.paymentStatus} />
+                  <StatusBadge status={order.paymentStatus} type="payment-status" />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-500">Order:</span>
-                  <OrderStatusBadge status={order.status} />
+                  <StatusBadge status={order.status} type="order-status" />
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pt-2">
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-button text-primary">

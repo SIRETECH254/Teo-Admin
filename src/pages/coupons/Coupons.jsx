@@ -112,17 +112,8 @@ const Coupons = () => {
         return 'active'
     }
 
-    // Loading skeleton
-    const LoadingSkeleton = () => (
-        <div className="animate-pulse">
-            <div className="h-10 bg-gray-200 rounded mb-4"></div>
-            <div className="space-y-3">
-                {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="h-16 bg-gray-200 rounded"></div>
-                ))}
-            </div>
-        </div>
-    )
+    // Get error message from API response
+    const errorMessage = error?.response?.data?.message || 'Failed to load coupons.'
 
     return (
         <div className="p-6">
@@ -234,22 +225,12 @@ const Coupons = () => {
             )}
 
             {/* Coupons Table */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                {isLoading ? (
-                    <div className="p-6">
-                        <LoadingSkeleton />
-                    </div>
-                ) : error ? (
-                    <div className="p-6 text-center">
-                        <p className="text-red-600">Failed to load coupons. Please try again.</p>
-                    </div>
-                ) : (
-                    <>
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gray-50 border-b border-gray-200">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left">
+            <div className="table-container">
+                <table className="table">
+                    {/* Table header */}
+                    <thead className="table-header">
+                        <tr>
+                            <th className="table-header-cell">
                                             <input
                                                 type="checkbox"
                                                 checked={selectedCoupons.length === coupons.length && coupons.length > 0}
@@ -257,44 +238,94 @@ const Coupons = () => {
                                                 className="rounded border-gray-300 text-primary focus:ring-primary"
                                             />
                                         </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Coupon
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Discount
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Usage
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Expiry
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Status
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Created
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Actions
-                                        </th>
+                            <th className="table-header-cell">Coupon</th>
+                            <th className="table-header-cell">Discount</th>
+                            <th className="table-header-cell">Usage</th>
+                            <th className="table-header-cell">Expiry</th>
+                            <th className="table-header-cell">Status</th>
+                            <th className="table-header-cell">Created</th>
+                            <th className="table-header-cell-right">Actions</th>
+                        </tr>
+                    </thead>
+
+                    {/* Table body */}
+                    <tbody className="table-body">
+                        {/* Loading state: skeleton rows */}
+                        {isLoading && (
+                            <>
+                                {[...Array(5)].map((_, index) => (
+                                    <tr key={`skeleton-${index}`}>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-4 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div>
+                                                <div className="h-4 w-32 animate-pulse rounded bg-gray-300 mb-1" />
+                                                <div className="h-3 w-24 animate-pulse rounded bg-gray-300" />
+                                            </div>
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-16 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-20 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-24 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-6 w-16 animate-pulse rounded-full bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-20 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                            </div>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {coupons.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
-                                                <div className="flex flex-col items-center">
-                                                    <FiSearch className="h-12 w-12 text-gray-300 mb-4" />
-                                                    <p className="text-lg font-medium">No coupons found</p>
-                                                    <p className="text-sm">Try adjusting your search or filters</p>
+                                ))}
+                            </>
+                        )}
+
+                        {/* Error state */}
+                        {error && !isLoading && (
+                            <tr>
+                                <td colSpan={8} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiAlertTriangle className="text-red-500" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">{errorMessage}</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+
+                        {/* Empty state */}
+                        {!isLoading && !error && coupons.length === 0 && (
+                            <tr>
+                                <td colSpan={8} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiSearch className="text-gray-400" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">No coupons found.</p>
+                                        {searchTerm || statusFilter !== 'all' ? (
+                                            <p className="mt-2 text-sm text-gray-400">
+                                                Try adjusting your search or filters.
+                                            </p>
+                                        ) : null}
                                                 </div>
                                             </td>
                                         </tr>
-                                    ) : (
+                        )}
+
+                        {/* Coupon rows */}
+                        {!isLoading &&
+                            !error &&
                                         coupons.map((coupon) => (
-                                            <tr key={coupon._id} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 whitespace-nowrap">
+                                <tr key={coupon._id} className="table-row">
+                                    <td className="table-cell">
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedCoupons.includes(coupon._id)}
@@ -302,7 +333,7 @@ const Coupons = () => {
                                                         className="rounded border-gray-300 text-primary focus:ring-primary"
                                                     />
                                                 </td>
-                                                <td className="px-6 py-4">
+                                    <td className="table-cell">
                                                     <div>
                                                         <div className="text-sm font-medium text-gray-900">
                                                             {coupon.code}
@@ -317,7 +348,7 @@ const Coupons = () => {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <td className="table-cell-text">
                                                     <div className="text-sm text-gray-900">
                                                         {formatDiscountValue(coupon)}
                                                     </div>
@@ -332,7 +363,7 @@ const Coupons = () => {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <td className="table-cell-text">
                                                     <div className="text-sm text-gray-900">
                                                         {coupon.usedCount} used
                                                     </div>
@@ -347,7 +378,7 @@ const Coupons = () => {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
+                                    <td className="table-cell-text">
                                                     {coupon.hasExpiry ? (
                                                         <div className="text-sm text-gray-900">
                                                             {new Date(coupon.expiryDate).toLocaleDateString()}
@@ -358,24 +389,24 @@ const Coupons = () => {
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <StatusBadge status={getCouponStatus(coupon)} />
+                                    <td className="table-cell">
+                                                    <StatusBadge status={getCouponStatus(coupon)} type="coupon-status" />
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <td className="table-cell-text">
                                                     {new Date(coupon.createdAt).toLocaleDateString()}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                    <div className="flex items-center gap-2">
+                                    <td className="table-cell">
+                                        <div className="flex items-center justify-end gap-2">
                                                         <button
                                                             onClick={() => navigate(`/coupons/${coupon._id}`)}
-                                                            className="text-blue-600 hover:text-blue-900 transition-colors"
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-blue-600 transition hover:bg-blue-50"
                                                             title="View Coupon"
                                                         >
                                                             <FiEye className="h-4 w-4" />
                                                         </button>
                                                         <button
                                                             onClick={() => navigate(`/coupons/${coupon._id}/edit`)}
-                                                            className="text-gray-600 hover:text-gray-900 transition-colors"
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-primary transition hover:bg-primary/10"
                                                             title="Edit Coupon"
                                                         >
                                                             <FiEdit2 className="h-4 w-4" />
@@ -385,7 +416,7 @@ const Coupons = () => {
                                                                 show: true,
                                                                 couponId: coupon._id
                                                             })}
-                                                            className="text-red-600 hover:text-red-900 transition-colors"
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-red-600 transition hover:bg-red-50"
                                                             title="Delete Coupon"
                                                         >
                                                             <FiTrash2 className="h-4 w-4" />
@@ -393,15 +424,14 @@ const Coupons = () => {
                                                     </div>
                                                 </td>
                                             </tr>
-                                        ))
-                                    )}
+                            ))}
                                 </tbody>
                             </table>
                         </div>
 
-                        {/* Pagination */}
-                        {pagination && pagination.totalPages > 1 && (
-                            <div className="px-6 py-4 border-t border-gray-200">
+            {/* Pagination - separate from table container */}
+            {!isLoading && !error && pagination && pagination.totalPages > 1 && (
+                <div className="mt-4">
                                 <Pagination
                                     currentPage={pagination.currentPage}
                                     totalPages={pagination.totalPages}
@@ -412,9 +442,6 @@ const Coupons = () => {
                                 />
                             </div>
                         )}
-                    </>
-                )}
-            </div>
 
             {/* Delete Confirmation Modal */}
             {deleteModal.show && (

@@ -4,6 +4,7 @@ import { useGetUsers } from '../../hooks/useUsers'
 import { useGetRoles } from '../../hooks/useRoles'
 import { FiPlus, FiEdit, FiSearch, FiFilter, FiUsers, FiX, FiList, FiImage, FiTrash2, FiAlertTriangle } from 'react-icons/fi'
 import Pagination from '../../components/common/Pagination'
+import StatusBadge from '../../components/common/StatusBadge'
 import { useDeleteUser } from '../../hooks/useUsers'
 
 
@@ -36,7 +37,7 @@ const Customers = () => {
         return p
     }, [debouncedSearch, filterRole, filterStatus, currentPage, itemsPerPage])
 
-    const { data, isLoading } = useGetUsers(params)
+    const { data, isLoading, isError, error } = useGetUsers(params)
     const { data: rolesData } = useGetRoles({ limit: 100 })
 
     // Normalized data
@@ -85,46 +86,8 @@ const Customers = () => {
         setCurrentPage(1)
     }, [])
 
-    const LoadingSkeleton = () => (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" />
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roles</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <tr key={i}>
-                                <td className="px-6 py-4"><div className="h-4 w-4 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center">
-                                        <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse mr-3" />
-                                        <div>
-                                            <div className="h-4 w-40 bg-gray-200 rounded animate-pulse mb-1" />
-                                            <div className="h-3 w-24 bg-gray-200 rounded animate-pulse" />
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4"><div className="h-4 w-32 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4"><div className="h-4 w-24 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4"><div className="h-4 w-16 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4 text-right"><div className="h-8 w-24 bg-gray-200 rounded animate-pulse ml-auto" /></td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    )
+    // Get error message from API response
+    const errorMessage = error?.response?.data?.message || 'Failed to load users.'
 
     return (
         <div className="p-4">
@@ -260,42 +223,106 @@ const Customers = () => {
                 </div>
             </header>
 
-            <div className="bg-light rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                {isLoading ? (
-                    <LoadingSkeleton />
-                ) : users.length === 0 ? (
-                    <div className="py-16 px-6 text-center">
-                        <div className="mx-auto h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-                            <FiUsers className="h-7 w-7 text-primary" />
-                        </div>
-                        <h3 className="mt-4 text-lg font-semibold text-gray-900">No users yet</h3>
-                        <p className="mt-1 text-sm text-gray-500">Users will appear here once they register.</p>
-                    </div>
-                ) : (
-                <>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-light">
+            {/* Users Table */}
+            <div className="table-container">
+                <table className="table">
+                    {/* Table header */}
+                    <thead className="table-header">
+                        <tr>
+                            <th className="table-header-cell">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedUsers.length === users.length && users.length > 0}
+                                    onChange={handleSelectAll}
+                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                            </th>
+                            <th className="table-header-cell">User</th>
+                            <th className="table-header-cell">Email</th>
+                            <th className="table-header-cell">Roles</th>
+                            <th className="table-header-cell">Status</th>
+                            <th className="table-header-cell-right">Actions</th>
+                        </tr>
+                    </thead>
+
+                    {/* Table body */}
+                    <tbody className="table-body">
+                        {/* Loading state: skeleton rows */}
+                        {isLoading && (
+                            <>
+                                {[...Array(5)].map((_, index) => (
+                                    <tr key={`skeleton-${index}`}>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-4 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="table-cell-content">
+                                                <div className="h-10 w-10 animate-pulse rounded-full bg-gray-300" />
+                                                <div>
+                                                    <div className="h-4 w-40 animate-pulse rounded bg-gray-300 mb-1" />
+                                                    <div className="h-3 w-24 animate-pulse rounded bg-gray-300" />
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-32 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-24 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-6 w-16 animate-pulse rounded-full bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </>
+                        )}
+
+                        {/* Error state */}
+                        {isError && !isLoading && (
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedUsers.length === users.length && users.length > 0}
-                                        onChange={handleSelectAll}
-                                        className="rounded border-gray-300 text-primary focus:ring-primary"
-                                    />
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Roles</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <td colSpan={6} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiAlertTriangle className="text-red-500" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">{errorMessage}</p>
+                                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {users.map((user) => (
-                                <tr key={user._id || user.id} className="hover:bg-light">
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                        )}
+
+                        {/* Empty state */}
+                        {!isLoading && !isError && users.length === 0 && (
+                            <tr>
+                                <td colSpan={6} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiUsers className="text-gray-400" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">No users found.</p>
+                                        {debouncedSearch || filterStatus !== 'all' || filterRole !== 'all' ? (
+                                            <p className="mt-2 text-sm text-gray-400">
+                                                Try adjusting your search or filters.
+                                            </p>
+                                        ) : (
+                                            <p className="mt-2 text-sm text-gray-400">
+                                                Users will appear here once they register.
+                                            </p>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+
+                        {/* User rows */}
+                        {!isLoading &&
+                            !isError &&
+                            users.map((user) => (
+                                <tr key={user._id || user.id} className="table-row">
+                                    <td className="table-cell">
                                         <input
                                             type="checkbox"
                                             checked={selectedUsers.includes(user._id || user.id)}
@@ -303,27 +330,25 @@ const Customers = () => {
                                             className="rounded border-gray-300 text-primary focus:ring-primary"
                                         />
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center">
-                                            <div className="h-10 w-10 flex-shrink-0 mr-3">
-                                                {user.avatar ? (
-                                                    <img className="h-10 w-10 rounded-full object-cover" src={user.avatar} alt={user.name || user.email} />
-                                                ) : (
-                                                    <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                                                        <FiImage className="h-5 w-5 text-gray-400" />
-                                                    </div>
-                                                )}
-                                            </div>
+                                    <td className="table-cell">
+                                        <div className="table-cell-content">
+                                            {user.avatar ? (
+                                                <img className="table-avatar" src={user.avatar} alt={user.name || user.email} />
+                                            ) : (
+                                                <div className="table-avatar-initials">
+                                                    {(user.name || user.email || 'U').charAt(0).toUpperCase()}
+                                                </div>
+                                            )}
                                             <div>
                                                 <div className="text-sm font-medium text-gray-900">{user.name || '—'}</div>
                                                 <div className="text-xs text-gray-500">{new Date(user.createdAt).toLocaleDateString()}</div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="text-sm text-gray-900">{user.email}</span>
+                                    <td className="table-cell-text">
+                                        {user.email}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                                    <td className="table-cell">
                                         <div className="flex flex-wrap gap-1">
                                             {(user.roles || []).map((r) => (
                                                 <span key={r._id} className="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700 border border-gray-200">
@@ -332,24 +357,26 @@ const Customers = () => {
                                             ))}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center gap-2 text-xs">
-                                            <span className={`px-2 py-0.5 rounded ${user.isActive ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}>{user.isActive ? 'Active' : 'Inactive'}</span>
-                                            <span className={`px-2 py-0.5 rounded ${user.isVerified ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-yellow-100 text-yellow-700 border border-yellow-200'}`}>{user.isVerified ? 'Verified' : 'Unverified'}</span>
+                                    <td className="table-cell">
+                                        <div className="flex items-center gap-2">
+                                            <StatusBadge status={user.isActive ? 'active' : 'inactive'} type="user-status" />
+                                            {user.isVerified !== undefined && (
+                                                <StatusBadge status={user.isVerified ? 'verified' : 'unverified'} type="user-status" />
+                                            )}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex items-center justify-end space-x-2">
+                                    <td className="table-cell">
+                                        <div className="flex items-center justify-end gap-2">
                                             <button
                                                 onClick={() => handleEdit(user)}
-                                                className="text-primary hover:text-secondary"
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-primary transition hover:bg-primary/10"
                                                 title="Edit user"
                                             >
                                                 <FiEdit className="h-4 w-4" />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(user)}
-                                                className="text-red-600 hover:text-red-900"
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-red-600 transition hover:bg-red-50"
                                                 title="Delete user"
                                             >
                                                 <FiTrash2 className="h-4 w-4" />
@@ -358,31 +385,30 @@ const Customers = () => {
                                     </td>
                                 </tr>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                {selectedUsers.length > 0 && (
-                    <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-                        <p className="text-sm text-gray-600">{selectedUsers.length} of {users.length} selected</p>
-                    </div>
-                )}
-
-                {totalPages > 1 && (
-                    <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-                        <Pagination
-                            currentPage={pagination.currentPage || currentPage}
-                            totalPages={totalPages}
-                            onPageChange={(p) => setCurrentPage(p)}
-                            totalItems={totalItems}
-                            pageSize={itemsPerPage}
-                            currentPageCount={users.length}
-                        />
-                    </div>
-                )}
-                </>
-                )}
+                    </tbody>
+                </table>
             </div>
+
+            {/* Selection Info */}
+            {selectedUsers.length > 0 && !isLoading && !isError && (
+                <div className="mt-4 px-6 py-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-600">{selectedUsers.length} of {users.length} selected</p>
+                </div>
+            )}
+
+            {/* Pagination - separate from table container */}
+            {!isLoading && !isError && totalPages > 1 && (
+                <div className="mt-4">
+                    <Pagination
+                        currentPage={pagination.currentPage || currentPage}
+                        totalPages={totalPages}
+                        onPageChange={(p) => setCurrentPage(p)}
+                        totalItems={totalItems}
+                        pageSize={itemsPerPage}
+                        currentPageCount={users.length}
+                    />
+                </div>
+            )}
         </div>
     )
 }

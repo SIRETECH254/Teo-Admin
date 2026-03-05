@@ -28,7 +28,10 @@ const Tags = () => {
     params.page = currentPage
     params.limit = itemsPerPage
 
-    const { data, isLoading } = useGetTags(params)
+    const { data, isLoading, isError, error } = useGetTags(params)
+    
+    // Get error message from API response
+    const errorMessage = error?.response?.data?.message || 'Failed to load tags.'
     const tags = data?.data?.data?.tags || []
     const pagination = data?.data?.data?.pagination || {}
     const totalItems = pagination.totalTags || pagination.totalItems || 0
@@ -63,89 +66,6 @@ const Tags = () => {
         setSearchTerm('')
         setCurrentPage(1)
     }
-
-    const LoadingSkeleton = () => (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" />
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tag</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Products</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {[...Array(5)].map((_, index) => (
-                            <tr key={index}>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="h-4 w-4 bg-gray-200 rounded animate-pulse"></div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex items-center">
-                                        <div className="h-8 w-8 bg-gray-200 rounded-full animate-pulse"></div>
-                                        <div className="ml-3">
-                                            <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="h-6 bg-gray-200 rounded-full w-16 animate-pulse"></div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right">
-                                    <div className="flex items-center justify-end space-x-2">
-                                        <div className="h-8 w-8 bg-gray-200 rounded animate-pulse"></div>
-                                        <div className="h-8 w-8 bg-gray-200 rounded animate-pulse"></div>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    )
-
-    if (isLoading) {
-        return (
-            <div className="p-6">
-                {/* Header Skeleton */}
-                <div className="flex justify-between items-center mb-6">
-                    <div>
-                        <div className="h-8 bg-gray-200 rounded w-32 mb-2 animate-pulse"></div>
-                        <div className="h-4 bg-gray-200 rounded w-48 animate-pulse"></div>
-                    </div>
-                    <div className="h-10 bg-gray-200 rounded w-24 animate-pulse"></div>
-                </div>
-
-                {/* Filters Skeleton */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <div className="flex-1">
-                            <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
-                        </div>
-                        <div className="flex gap-4">
-                            <div className="h-10 bg-gray-200 rounded w-32 animate-pulse"></div>
-                            <div className="h-10 bg-gray-200 rounded w-16 animate-pulse"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <LoadingSkeleton />
-            </div>
-        )
-    }
-
-
-
-
 
     return (
         <div className="p-4">
@@ -232,133 +152,175 @@ const Tags = () => {
             </header>
 
             {/* Tags Table */}
-            <div className="bg-light rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                {isLoading ? (
-                    <LoadingSkeleton />
-                ) : tags.length === 0 ? (
-                    <div className="py-16 px-6 text-center">
-                        <div className="mx-auto h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-                            <FiGrid className="h-7 w-7 text-primary" />
-                        </div>
-                        <h3 className="mt-4 text-lg font-semibold text-gray-900">No tags yet</h3>
-                        <p className="mt-1 text-sm text-gray-500">Get started by creating your first tag.</p>
-                        <div className="mt-6">
-                            <Link to="/tags/add" className="btn-primary inline-flex items-center">
-                                <FiPlus className="mr-2 h-4 w-4" />
-                                Add Tag
-                            </Link>
-                        </div>
-                    </div>
-                ) : (
-                    <>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-light">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedTags.length === tags.length && tags.length > 0}
-                                                onChange={handleSelectAll}
-                                                className="rounded border-gray-300 text-primary focus:ring-primary"
-                                            />
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Tag
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Products
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Status
-                                        </th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Actions
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {tags.map((tag) => {
-                                        return (
-                                            <tr key={tag.id} className="hover:bg-light">
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedTags.includes(tag._id || tag.id)}
-                                                        onChange={() => handleSelectTag(tag._id || tag.id)}
-                                                        className="rounded border-gray-300 text-primary focus:ring-primary"
-                                                    />
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center">
-                                                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center mr-3">
-                                                            <FiTag className="h-4 w-4 text-primary" />
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-sm font-medium text-gray-900">{tag.name}</div>
-                                                            <div className="text-sm text-gray-500">{tag.slug}</div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                        {tag.productCount || 0} products
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <StatusBadge status={tag.isActive ? 'active' : 'inactive'} />
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                    <div className="flex items-center justify-end space-x-2">
-                                                        <button
-                                                            onClick={() => handleEdit(tag)}
-                                                            className="text-primary hover:text-secondary p-1 rounded"
-                                                            title="Edit tag"
-                                                        >
-                                                            <FiEdit className="h-4 w-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setConfirmDelete({ open: true, tag })}
-                                                            className="text-red-600 hover:text-red-900 p-1 rounded"
-                                                            title="Delete tag"
-                                                        >
-                                                                <FiTrash2 className="h-4 w-4" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        )
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Selection Info */}
-                        {selectedTags.length > 0 && (
-                            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-                                <p className="text-sm text-gray-600">
-                                    {selectedTags.length} of {tags.length} selected
-                                </p>
-                            </div>
-                        )}
-
-                        {/* Pagination */}
-                        {totalPages > 1 && (
-                            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-                                <Pagination
-                                    currentPage={pagination.currentPage || currentPage}
-                                    totalPages={totalPages}
-                                    onPageChange={(p) => setCurrentPage(p)}
-                                    totalItems={totalItems}
-                                    pageSize={itemsPerPage}
-                                    currentPageCount={tags.length}
-                                    align="center"
+            <div className="table-container">
+                <table className="table">
+                    {/* Table header */}
+                    <thead className="table-header">
+                        <tr>
+                            <th className="table-header-cell">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedTags.length === tags.length && tags.length > 0}
+                                    onChange={handleSelectAll}
+                                    className="rounded border-gray-300 text-primary focus:ring-primary"
                                 />
-                            </div>
+                            </th>
+                            <th className="table-header-cell">Tag</th>
+                            <th className="table-header-cell">Products</th>
+                            <th className="table-header-cell">Status</th>
+                            <th className="table-header-cell-right">Actions</th>
+                        </tr>
+                    </thead>
+
+                    {/* Table body */}
+                    <tbody className="table-body">
+                        {/* Loading state: skeleton rows */}
+                        {isLoading && (
+                            <>
+                                {[...Array(5)].map((_, index) => (
+                                    <tr key={`skeleton-${index}`}>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-4 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="table-cell-content">
+                                                <div className="h-8 w-8 animate-pulse rounded-full bg-gray-300" />
+                                                <div>
+                                                    <div className="h-4 w-24 animate-pulse rounded bg-gray-300 mb-1" />
+                                                    <div className="h-3 w-32 animate-pulse rounded bg-gray-300" />
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-6 w-20 animate-pulse rounded-full bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-6 w-16 animate-pulse rounded-full bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </>
                         )}
-                    </>
-                )}
+
+                        {/* Error state */}
+                        {isError && !isLoading && (
+                            <tr>
+                                <td colSpan={5} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiAlertTriangle className="text-red-500" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">{errorMessage}</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+
+                        {/* Empty state */}
+                        {!isLoading && !isError && tags.length === 0 && (
+                            <tr>
+                                <td colSpan={5} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiTag className="text-gray-400" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">No tags found.</p>
+                                        {debouncedSearch || filterStatus !== 'all' ? (
+                                            <p className="mt-2 text-sm text-gray-400">
+                                                Try adjusting your search or filters.
+                                            </p>
+                                        ) : (
+                                            <Link to="/tags/add" className="mt-4 btn-primary inline-flex items-center">
+                                                <FiPlus className="mr-2 h-4 w-4" />
+                                                Add Tag
+                                            </Link>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+
+                        {/* Tag rows */}
+                        {!isLoading &&
+                            !isError &&
+                            tags.map((tag) => (
+                                <tr key={tag.id} className="table-row">
+                                    <td className="table-cell">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedTags.includes(tag._id || tag.id)}
+                                            onChange={() => handleSelectTag(tag._id || tag.id)}
+                                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                                        />
+                                    </td>
+                                    <td className="table-cell">
+                                        <div className="table-cell-content">
+                                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                                <FiTag className="h-4 w-4 text-primary" />
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-medium text-gray-900">{tag.name}</div>
+                                                <div className="text-sm text-gray-500">{tag.slug}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="table-cell">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {tag.productCount || 0} products
+                                        </span>
+                                    </td>
+                                    <td className="table-cell">
+                                        <StatusBadge status={tag.isActive ? 'active' : 'inactive'} type="tag-status" />
+                                    </td>
+                                    <td className="table-cell">
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => handleEdit(tag)}
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-primary transition hover:bg-primary/10"
+                                                title="Edit tag"
+                                            >
+                                                <FiEdit className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => setConfirmDelete({ open: true, tag })}
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-red-600 transition hover:bg-red-50"
+                                                title="Delete tag"
+                                            >
+                                                <FiTrash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                    </tbody>
+                </table>
             </div>
+
+            {/* Selection Info */}
+            {selectedTags.length > 0 && !isLoading && !isError && (
+                <div className="mt-4 px-6 py-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-600">
+                        {selectedTags.length} of {tags.length} selected
+                    </p>
+                </div>
+            )}
+
+            {/* Pagination - separate from table container */}
+            {!isLoading && !isError && totalPages > 1 && (
+                <div className="mt-4">
+                    <Pagination
+                        currentPage={pagination.currentPage || currentPage}
+                        totalPages={totalPages}
+                        onPageChange={(p) => setCurrentPage(p)}
+                        totalItems={totalItems}
+                        pageSize={itemsPerPage}
+                        currentPageCount={tags.length}
+                        align="center"
+                    />
+                </div>
+            )}
 
             {/* Delete Confirmation Modal */}
             {confirmDelete.open && (

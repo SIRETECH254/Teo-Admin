@@ -43,7 +43,7 @@ const Products = () => {
         return p
     }, [filterStatus, filterBrand, filterCategory, debouncedSearch, currentPage, itemsPerPage])
 
-    const { data, isLoading } = useGetProducts(params)
+    const { data, isLoading, isError, error } = useGetProducts(params)
     const { data: brandsData } = useGetBrands({ limit: 100 })
     const { data: categoriesData } = useGetCategories({ limit: 100 })
 
@@ -115,48 +115,8 @@ const Products = () => {
         setCurrentPage(1)
     }, [])
 
-    const LoadingSkeleton = () => (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" />
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                            
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <tr key={i}>
-                                <td className="px-6 py-4"><div className="h-4 w-4 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center">
-                                        <div className="h-10 w-10 bg-gray-200 rounded animate-pulse mr-3" />
-                                        <div>
-                                            <div className="h-4 w-40 bg-gray-200 rounded animate-pulse mb-1" />
-                                            <div className="h-3 w-24 bg-gray-200 rounded animate-pulse" />
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4"><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4"><div className="h-4 w-16 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4"><div className="h-4 w-12 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4"><div className="h-4 w-16 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4 text-right"><div className="h-8 w-24 bg-gray-200 rounded animate-pulse ml-auto" /></td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    )
+    // Get error message from API response
+    const errorMessage = error?.response?.data?.message || 'Failed to load products.'
 
     return (
         <div className="p-4">
@@ -315,59 +275,114 @@ const Products = () => {
             </header>
 
             {/* Products Table */}
-            <div className="bg-light rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                {isLoading ? (
-                    <LoadingSkeleton />
-                ) : products.length === 0 ? (
-                    <div className="py-16 px-6 text-center">
-                        <div className="mx-auto h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-                            <FiPackage className="h-7 w-7 text-primary" />
-                        </div>
-                        <h3 className="mt-4 text-lg font-semibold text-gray-900">No products yet</h3>
-                        <p className="mt-1 text-sm text-gray-500">Get started by creating your first product.</p>
-                        <div className="mt-6">
-                            <Link to="/products/add" className="btn-primary inline-flex items-center">
-                                <FiPlus className="mr-2 h-4 w-4" />
-                                Add Product
-                            </Link>
-                        </div>
-                    </div>
-                ) : (
-                <>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-light">
+            <div className="table-container">
+                <table className="table">
+                    {/* Table header */}
+                    <thead className="table-header">
+                        <tr>
+                            <th className="table-header-cell">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedProducts.length === products.length && products.length > 0}
+                                    onChange={handleSelectAll}
+                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                            </th>
+                            <th className="table-header-cell">
+                                Product
+                            </th>
+                            <th className="table-header-cell">
+                                Brand
+                            </th>
+                            <th className="table-header-cell">
+                                Price
+                            </th>
+                            <th className="table-header-cell">
+                                Status
+                            </th>
+                            <th className="table-header-cell-right">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+
+                    {/* Table body */}
+                    <tbody className="table-body">
+                        {/* Loading state: skeleton rows */}
+                        {isLoading && (
+                            <>
+                                {[...Array(5)].map((_, index) => (
+                                    <tr key={`skeleton-${index}`}>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-4 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="table-cell-content">
+                                                <div className="h-10 w-10 animate-pulse rounded-lg bg-gray-300" />
+                                                <div className="h-4 w-40 animate-pulse rounded bg-gray-300" />
+                                            </div>
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-20 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-16 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-12 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </>
+                        )}
+
+                        {/* Error state */}
+                        {isError && !isLoading && (
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedProducts.length === products.length && products.length > 0}
-                                        onChange={handleSelectAll}
-                                        className="rounded border-gray-300 text-primary focus:ring-primary"
-                                    />
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Product
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Brand
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Price
-                                </th>
-                                
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Status
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
-                                </th>
+                                <td colSpan={6} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiAlertTriangle className="text-red-500" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">{errorMessage}</p>
+                                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {products.map((product) => (
-                                <tr key={product._id || product.id} className="hover:bg-light">
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                        )}
+
+                        {/* Empty state */}
+                        {!isLoading && !isError && products.length === 0 && (
+                            <tr>
+                                <td colSpan={6} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiPackage className="text-gray-400" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">No products found.</p>
+                                        {debouncedSearch || filterStatus !== 'all' || filterBrand !== 'all' || filterCategory !== 'all' ? (
+                                            <p className="mt-2 text-sm text-gray-400">
+                                                Try adjusting your search or filters.
+                                            </p>
+                                        ) : (
+                                            <Link to="/products/add" className="mt-4 btn-primary inline-flex items-center">
+                                                <FiPlus className="mr-2 h-4 w-4" />
+                                                Add Product
+                                            </Link>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+
+                        {/* Product rows */}
+                        {!isLoading &&
+                            !isError &&
+                            products.map((product) => (
+                                <tr key={product._id || product.id} className="table-row">
+                                    <td className="table-cell">
                                         <input
                                             type="checkbox"
                                             checked={selectedProducts.includes(product._id || product.id)}
@@ -375,34 +390,28 @@ const Products = () => {
                                             className="rounded border-gray-300 text-primary focus:ring-primary"
                                         />
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center">
-                                            <div className="h-10 w-10 flex-shrink-0 mr-3">
-                                                {product.images && product.images.length > 0 ? (
-                                                    <img
-                                                        className="h-10 w-10 rounded-lg object-cover"
-                                                        src={product.images.find(img => img.isPrimary)?.url || product.images[0]?.url}
-                                                        alt={product.title}
-                                                    />
-                                                ) : (
-                                                    <div className="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center">
-                                                        <FiImage className="h-5 w-5 text-gray-400" />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div>
-                                                <div className="text-sm font-medium text-gray-900">{product.title}</div>
-                                            </div>
+                                    <td className="table-cell">
+                                        <div className="table-cell-content">
+                                            {product.images && product.images.length > 0 ? (
+                                                <img
+                                                    className="h-10 w-10 rounded-lg object-cover"
+                                                    src={product.images.find(img => img.isPrimary)?.url || product.images[0]?.url}
+                                                    alt={product.title}
+                                                />
+                                            ) : (
+                                                <div className="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center">
+                                                    <FiImage className="h-5 w-5 text-gray-400" />
+                                                </div>
+                                            )}
+                                            <div className="text-sm font-medium text-gray-900">{product.title}</div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className="text-sm text-gray-900">
-                                            {typeof product.brand === 'object' && product.brand?.name 
-                                                ? product.brand.name 
-                                                : brands.find(brand => brand._id === product.brand)?.name || 'No brand'}
-                                        </span>
+                                    <td className="table-cell-text">
+                                        {typeof product.brand === 'object' && product.brand?.name 
+                                            ? product.brand.name 
+                                            : brands.find(brand => brand._id === product.brand)?.name || 'No brand'}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                                    <td className="table-cell-text">
                                         <div className="text-sm text-gray-900">
                                             KES {product.basePrice?.toLocaleString() || '0'}
                                         </div>
@@ -412,29 +421,28 @@ const Products = () => {
                                             </div>
                                         )}
                                     </td>
-                                    
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <StatusBadge status={product.status || 'draft'} />
+                                    <td className="table-cell">
+                                        <StatusBadge status={product.status || 'draft'} type="product-status" />
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex items-center justify-end space-x-2">
+                                    <td className="table-cell">
+                                        <div className="flex items-center justify-end gap-2">
                                             <button
                                                 onClick={() => handleViewDetails(product)}
-                                                className="text-blue-600 hover:text-blue-900"
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-blue-600 transition hover:bg-blue-50"
                                                 title="View product details"
                                             >
                                                 <FiEye className="h-4 w-4" />
                                             </button>
                                             <button
                                                 onClick={() => handleEdit(product)}
-                                                className="text-primary hover:text-secondary"
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-primary transition hover:bg-primary/10"
                                                 title="Edit product"
                                             >
                                                 <FiEdit className="h-4 w-4" />
                                             </button>
                                             <button
                                                 onClick={() => handleDelete(product)}
-                                                className="text-red-600 hover:text-red-900"
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-red-600 transition hover:bg-red-50"
                                                 title="Delete product"
                                             >
                                                 <FiTrash2 className="h-4 w-4" />
@@ -443,35 +451,32 @@ const Products = () => {
                                     </td>
                                 </tr>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                    {/* Selection Info */}
-                    {selectedProducts.length > 0 && (
-                        <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-                            <p className="text-sm text-gray-600">
-                                {selectedProducts.length} of {products.length} selected
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-                            <Pagination
-                                currentPage={pagination.page || currentPage}
-                                totalPages={totalPages}
-                                onPageChange={(p) => setCurrentPage(p)}
-                                totalItems={totalItems}
-                                pageSize={itemsPerPage}
-                                currentPageCount={products.length}
-                            />
-                        </div>
-                    )}
-                </>
-                )}
+                    </tbody>
+                </table>
             </div>
+
+            {/* Selection Info */}
+            {selectedProducts.length > 0 && !isLoading && !isError && (
+                <div className="mt-4 px-6 py-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-600">
+                        {selectedProducts.length} of {products.length} selected
+                    </p>
+                </div>
+            )}
+
+            {/* Pagination - separate from table container */}
+            {!isLoading && !isError && totalPages > 1 && (
+                <div className="mt-4">
+                    <Pagination
+                        currentPage={pagination.page || currentPage}
+                        totalPages={totalPages}
+                        onPageChange={(p) => setCurrentPage(p)}
+                        totalItems={totalItems}
+                        pageSize={itemsPerPage}
+                        currentPageCount={products.length}
+                    />
+                </div>
+            )}
         </div>
     )
 }
