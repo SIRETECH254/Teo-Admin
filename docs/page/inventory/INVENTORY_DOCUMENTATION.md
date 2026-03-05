@@ -1,5 +1,17 @@
 # Inventory Management Screen Documentation
 
+## Overview
+The Inventory Management screen provides a comprehensive interface for managing product SKUs, stock levels, and inventory tracking. The page features an expandable product list with detailed SKU information, stock adjustment capabilities, and comprehensive SKU management.
+
+## Recent Updates
+- **Product Images:** Added product image display with fallback placeholder icons
+- **Shared Header:** Header section (title, description, search, filters) is now always visible across all states
+- **Separated State Handling:** Loading, error, empty, and success states are now handled independently
+- **Loading Skeleton:** Implemented 5-row skeleton loader with animated placeholders
+- **Error State:** Added error display with icon and message extracted from API response
+- **Success Handling:** Fixed SKU update success flow - hook handles toast notifications and modal closing automatically
+- **Backend Data Population:** Removed client-side variant/option lookups - backend now populates these as full objects
+
 ## Table of Contents
 - [Imports](#imports)
 - [Context and State Management](#context-and-state-management)
@@ -17,18 +29,18 @@
 ## Imports
 ```javascript
 import { useEffect, useMemo, useState } from 'react'
-import { FiSearch, FiFilter, FiList, FiX, FiPackage, FiArrowUpCircle, FiArrowDownCircle, FiChevronDown, FiChevronRight } from 'react-icons/fi'
+import { FiSearch, FiFilter, FiList, FiX, FiPackage, FiArrowUpCircle, FiArrowDownCircle, FiChevronDown, FiChevronRight, FiImage, FiAlertTriangle } from 'react-icons/fi'
 import { useGetProducts, useUpdateSKU } from '../../hooks/useProducts'
 import { useGetBrands } from '../../hooks/useBrands'
 import { useGetCategories } from '../../hooks/useCategories'
-import { useGetVariants } from '../../hooks/useVariants'
 import Pagination from '../../components/common/Pagination'
 import toast from 'react-hot-toast'
 ```
 
 ## Context and State Management
-- **TanStack Query hooks:** `useGetProducts`, `useUpdateSKU`, `useGetBrands`, `useGetCategories`, `useGetVariants` for data fetching and mutations.
+- **TanStack Query hooks:** `useGetProducts`, `useUpdateSKU`, `useGetBrands`, `useGetCategories` for data fetching and mutations.
 - **State management:** Local component state managed with `useState` hooks and `useMemo` for performance optimization.
+- **Query state:** The `useGetProducts` hook returns `{ data, isLoading, isError, error }` for comprehensive state handling.
 - **Form state:** Multiple state variables for filters, search, pagination, and modals:
   - `searchTerm`: Current search input value
   - `debouncedSearch`: Debounced search term (300ms delay)
@@ -54,8 +66,8 @@ export const useUpdateSKU = () => {
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
-            toast.success(data.message || 'SKU updated successfully')
-            return data
+            queryClient.invalidateQueries({ queryKey: ['product'] })
+            toast.success(data?.message || 'SKU updated successfully')
         },
         onError: (error) => {
             console.error('Update SKU error:', error)
@@ -65,19 +77,27 @@ export const useUpdateSKU = () => {
 }
 ```
 
+**Note:** The hook handles toast notifications automatically. Components should not duplicate toast calls in success handlers.
+
 ## UI Structure
 - **Screen shell:** Full-width container with padding (`p-4`).
-- **Header section:** Title, description, search bar, and filters.
-- **Product list:** Expandable/collapsible list of products with SKU details.
+- **Shared header section:** Title, description, search bar, and filters. Always visible across all states (loading, error, empty, success).
+- **Product list:** Expandable/collapsible div-based list of products with SKU details. Each product displays:
+  - Product image (primary image or first image, with fallback placeholder icon)
+  - Product title
+  - Total stock units and tracking status
+  - Expandable chevron icon
+- **Loading state:** Skeleton loader with 5 rows showing animated placeholders (no components created).
+- **Error state:** Centered display with `FiAlertTriangle` icon and error message extracted from API response.
+- **Empty state:** Centered message with `FiPackage` icon when no products exist.
 - **Stock adjustment modal:** Modal for increasing/decreasing stock with reason and note.
 - **SKU management modal:** Large modal for comprehensive SKU editing (price, stock, thresholds, barcode, pre-order).
-- **Pagination:** Bottom pagination component for navigating pages.
-- **Empty state:** Centered message when no products exist.
+- **Pagination:** Bottom pagination component for navigating pages (only shown when not loading and not in error state).
 
 ## Planned Layout
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Header                                                     │
+│  Header (Always Visible)                                     │
 │  ┌───────────────────────────────────────────────────────┐ │
 │  │  Inventory                                             │ │
 │  │  Manage SKUs, stock levels, and low‑stock thresholds  │ │
@@ -88,9 +108,9 @@ export const useUpdateSKU = () => {
 │  └───────────────────────────────────────────────────────┘ │
 │                                                             │
 │  ┌───────────────────────────────────────────────────────┐ │
-│  │  Product List (Expandable)                            │ │
+│  │  Product List (Expandable - Div-based)                │ │
 │  │  ┌───────────────────────────────────────────────────┐ │ │
-│  │  │ ▶ Product 1 (50 units • Tracking)              │ │ │
+│  │  │ [IMG] ▶ Product 1 (50 units • Tracking)        │ │ │
 │  │  │   ┌─────────────────────────────────────────┐ │ │ │
 │  │  │   │ Variant | Stock | Low Stock | Pre-order │ │ │ │
 │  │  │   │ Size: S | 10   | 5        | No         │ │ │ │
@@ -100,7 +120,7 @@ export const useUpdateSKU = () => {
 │  └───────────────────────────────────────────────────────┘ │
 │                                                             │
 │  ┌───────────────────────────────────────────────────────┐ │
-│  │  Pagination                                            │ │
+│  │  Pagination (when not loading/error)                   │ │
 │  └───────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -109,7 +129,7 @@ export const useUpdateSKU = () => {
 ```
 ┌───────────────────────────────────────────────────────────────┐
 │                                                               │
-│  Inventory                                                     │
+│  Inventory (Header - Always Visible)                         │
 │  Manage SKUs, stock levels, and low‑stock thresholds         │
 │                                                               │
 │  ┌─────────────────────────────────────────────────────┐   │
@@ -118,8 +138,8 @@ export const useUpdateSKU = () => {
 │  └─────────────────────────────────────────────────────┘   │
 │                                                               │
 │  ┌───────────────────────────────────────────────────────┐ │
-│  │ ▶ Product Title                                        │ │
-│  │   50 units • Tracking                                  │ │
+│  │ [🖼️] ▶ Product Title                                   │ │
+│  │        50 units • Tracking                             │ │
 │  │                                                         │ │
 │  │   (When expanded)                                      │ │
 │  │   ┌───────────────────────────────────────────────┐   │ │
@@ -228,24 +248,32 @@ export const useUpdateSKU = () => {
 - **HTTP client:** `axios` instance from `api/config.js` via `productAPI.getAllProducts` and `productAPI.updateSKU`.
 - **List products endpoint:** `GET /api/products`.
 - **Query parameters:** `{ page, limit, search, brand, category }`.
-- **Update SKU endpoint:** `PUT /api/products/:productId/skus/:skuId`.
+- **Update SKU endpoint:** `PATCH /api/products/:productId/skus/:skuId`.
 - **Payload:** `{ stock: number }` for adjustment, or full SKU object for management.
 - **Response contract:** `response.data` contains `{ success: true, message: string, data: sku }`.
-- **Cache invalidation:** After update, `queryClient.invalidateQueries({ queryKey: ['products'] })` is called.
+- **Cache invalidation:** After update, `queryClient.invalidateQueries({ queryKey: ['products'] })` and `queryClient.invalidateQueries({ queryKey: ['product'] })` are called.
+- **Backend data population:** The API automatically populates `variantId` and `optionId` as full objects in `selectedVariantOptions` and `skus.attributes`, eliminating the need for client-side lookups.
 
 ## Components Used
 - React hooks: `useState`, `useEffect`, `useMemo`.
 - TanStack Query: `useQuery`, `useMutation`, `useQueryClient`.
-- Form elements: `input`, `select`, `option`, `button`, `table`, `thead`, `tbody`, `tr`, `td`, `th`, `label`, `div`.
-- `react-icons/fi` for icons (FiSearch, FiFilter, FiList, FiX, FiPackage, FiArrowUpCircle, FiArrowDownCircle, FiChevronDown, FiChevronRight).
+- Form elements: `input`, `select`, `option`, `button`, `table`, `thead`, `tbody`, `tr`, `td`, `th`, `label`, `div`, `img`.
+- `react-icons/fi` for icons (FiSearch, FiFilter, FiList, FiX, FiPackage, FiArrowUpCircle, FiArrowDownCircle, FiChevronDown, FiChevronRight, FiImage, FiAlertTriangle).
 - Custom components: `Pagination`.
 - Tailwind CSS classes for styling with custom classes (`.title2`, `.btn-primary`, `.btn-outline`, `.input`).
 - `react-hot-toast` for toast notifications.
 
 ## Error Handling
-- **Loading states:** Loading message displayed while `isLoading` is true.
-- **Empty state:** Message displayed when `products.length === 0` with helpful text.
+- **State separation:** Loading, error, empty, and success states are handled separately with clear conditionals:
+  - `{isLoading && (...)}` - Shows skeleton loader
+  - `{isError && !isLoading && (...)}` - Shows error state with icon and message
+  - `{!isLoading && !isError && products.length === 0 && (...)}` - Shows empty state
+  - `{!isLoading && !isError && products.length > 0 && (...)}` - Shows product list
+- **Loading states:** Skeleton loader with 5 animated rows displayed while `isLoading` is true. No components are created during loading.
+- **Error state:** Centered display with `FiAlertTriangle` icon (48px) and error message extracted from API response: `error?.response?.data?.message || 'Failed to load inventory.'`
+- **Empty state:** Centered message with `FiPackage` icon when `products.length === 0` with helpful text.
 - **API errors:** Handled in `useUpdateSKU` hook's `onError` callback, displayed via toast notification.
+- **Success handling:** The `useUpdateSKU` hook automatically shows success toast and closes modals. Components should not duplicate toast calls.
 - **Search debouncing:** 300ms debounce prevents excessive API calls while user types.
 - **Stock validation:** Ensures stock cannot go below 0.
 
@@ -268,14 +296,29 @@ export const useUpdateSKU = () => {
   }
   ```
 
-- **`renderSkuAttributes`** — Renders variant attributes for SKU display.
+- **`renderSkuAttributes`** — Renders variant attributes for SKU display using populated data from backend.
   ```javascript
   const renderSkuAttributes = (sku) => {
-      const attrs = (sku.attributes || []).map(a => {
-          const variantName = variantNameById[a.variantId] || 'Option'
-          const optionValue = optionValueById[a.optionId] || '-'
+      if (!sku.attributes || sku.attributes.length === 0) {
+          return sku.skuCode || '-'
+      }
+      
+      const attrs = sku.attributes.map(attr => {
+          // Backend populates variantId as object with name and options
+          const variant = typeof attr.variantId === 'object' && attr.variantId !== null 
+              ? attr.variantId 
+              : null
+          
+          // Backend populates optionId as full Option object with _id and value
+          const option = typeof attr.optionId === 'object' && attr.optionId !== null
+              ? attr.optionId
+              : null
+          
+          const variantName = variant?.name || 'Option'
+          const optionValue = option?.value || option?._id || '-'
           return `${variantName}: ${optionValue}`
       })
+      
       return attrs.length ? attrs.join(', ') : (sku.skuCode || '-')
   }
   ```
@@ -295,7 +338,7 @@ export const useUpdateSKU = () => {
   }
   ```
 
-- **`submitSkuUpdate`** — Submits SKU update via mutation.
+- **`submitSkuUpdate`** — Submits SKU update via mutation. Toast notification and modal closing are handled by the hook.
   ```javascript
   const submitSkuUpdate = async () => {
       try {
@@ -312,32 +355,29 @@ export const useUpdateSKU = () => {
           }
           
           await updateSku.mutateAsync({ productId: product._id, skuId: sku._id, skuData })
-          toast.success('SKU updated successfully')
           closeSkuManagement()
       } catch (e) {
-          toast.error('Failed to update SKU')
+          // Error is handled by the hook's onError callback
       }
   }
   ```
 
-- **Memoized variant/option lookups** — Builds quick lookup maps for variant names and option values.
+- **Product image display** — Shows product image with fallback placeholder.
   ```javascript
-  const variantNameById = useMemo(() => {
-      const list = variantsData?.data?.data || variantsData?.data || variantsData || []
-      const map = {}
-      list.forEach(v => { map[v._id] = v.name })
-      return map
-  }, [variantsData])
-
-  const optionValueById = useMemo(() => {
-      const list = variantsData?.data?.data || variantsData?.data || variantsData || []
-      const map = {}
-      list.forEach(v => {
-          ;(v.options || []).forEach(opt => { map[opt._id] = opt.value })
-      })
-      return map
-  }, [variantsData])
+  {p.images && p.images.length > 0 ? (
+      <img
+          className="h-10 w-10 rounded-lg object-cover"
+          src={p.images.find(img => img.isPrimary)?.url || p.images[0]?.url}
+          alt={p.title}
+      />
+  ) : (
+      <div className="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center">
+          <FiImage className="h-5 w-5 text-gray-400" />
+      </div>
+  )}
   ```
+
+**Note:** Variant/option lookups are no longer needed as the backend API automatically populates these fields as full objects in the response.
 
 ## Future Enhancements
 - Add bulk stock adjustment (adjust multiple SKUs at once).
