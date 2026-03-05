@@ -200,10 +200,10 @@ export const useUpdateSKU = () => {
             const response = await productAPI.updateSKU(productId, skuId, skuData)
             return response.data
         },
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
-            return data
+            toast.success(data?.message || 'SKU updated successfully')
         },
         onError: (error) => {
             console.error('Update SKU error:', error)
