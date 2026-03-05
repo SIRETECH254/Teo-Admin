@@ -459,6 +459,97 @@ const EditProduct = () => {
         navigate('/products')
     }, [navigate])
 
+    // Get current step number
+    const currentStep = useMemo(() => {
+        const stepMap = {
+            'basic': 1,
+            'organization': 2,
+            'pricing': 3,
+            'variants': 4,
+            'images': 5,
+            'settings': 6,
+            'summary': 7
+        }
+        return stepMap[activeTab] || 1
+    }, [activeTab])
+
+    // Handle tab change with validation
+    const handleTabChange = useCallback((tabId) => {
+        setActiveTab(tabId)
+    }, [])
+
+    /**
+     * Render Step Indicator Header
+     */
+    const renderStepHeader = () => {
+        const progress = (currentStep / tabs.length) * 100
+        
+        return (
+            <div className="bg-white border-b border-gray-100 space-y-4 p-3">
+                <div className="flex-row items-center justify-between flex">
+                    {/* current step & label */}
+                    <div className="flex-row items-center gap-x-2 flex">
+                        <div className="h-5 w-5 rounded-full items-center justify-center bg-primary text-white text-xs font-bold flex">
+                            {currentStep}
+                        </div>
+                        <span className="text-sm font-semibold text-primary">
+                            {tabs.find(tab => tab.id === activeTab)?.label}
+                        </span>
+                    </div>
+               
+                    {/* Step numbers and labels */}
+                    <div className="flex-row items-center gap-x-2 md:gap-x-4 lg:gap-x-6 flex">
+                        {tabs.map((tab, index) => {
+                            const stepNumber = index + 1
+                            const isActive = tab.id === activeTab
+                            const isCompleted = currentStep > stepNumber
+                            
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => handleTabChange(tab.id)}
+                                    className="flex-1 items-center flex flex-col"
+                                    type="button"
+                                >
+                                    <div className="items-center flex flex-col">
+                                        {/* Step number circle */}
+                                        <div className={`h-6 w-6 rounded-full items-center justify-center flex ${
+                                            isActive 
+                                                ? 'bg-primary' 
+                                                : isCompleted 
+                                                    ? 'bg-primary/30' 
+                                                    : 'bg-gray-200'
+                                        }`}>
+                                            {isCompleted ? (
+                                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            ) : (
+                                                <span className={`text-base font-bold ${
+                                                    isActive ? 'text-white' : 'text-gray-500'
+                                                }`}>
+                                                    {stepNumber}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+                
+                {/* Progress bar */}
+                <div className="h-2 bg-gray-100 rounded-full">
+                    <div 
+                        className="h-full bg-primary rounded-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
+                    />
+                </div>
+            </div>
+        )
+    }
+
     // Loading state
     if (isLoading || productLoading) {
         return (
@@ -1079,76 +1170,76 @@ const EditProduct = () => {
 
                 return (
                     <div className="space-y-4">
-                        <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                             <div className="flex items-center justify-between mb-3">
                                 <span className="font-medium text-gray-800 inline-flex items-center">
-                                    <FiInfo className="h-4 w-4 mr-2 text-gray-600" />
+                                    <FiInfo className="h-5 w-5 mr-2 text-primary" />
                                     Basic Info
                                 </span>
                                 <button onClick={() => setActiveTab('basic')} className="text-gray-400 hover:text-gray-600">
                                     <FiEdit2 className="w-4 h-4" />
                                 </button>
                             </div>
-                            <div className="text-sm text-gray-700 space-y-1">
+                            <div className="text-sm text-gray-700 flex flex-col space-y-2">
                                 <div className="inline-flex items-start">
-                                    <FiInfo className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <FiInfo className="h-4 w-4 mr-2 mt-0.5 text-primary" />
                                     <span>Title: <span className="font-medium text-gray-900">{formData.title || 'Not specified'}</span></span>
                                 </div>
                                 <div className="inline-flex items-start">
-                                    <FiEye className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <FiEye className="h-4 w-4 mr-2 mt-0.5 text-primary" />
                                     <span>Short Description: <span className="text-gray-900">{formData.shortDescription || '—'}</span></span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                             <div className="flex items-center justify-between mb-3">
                                 <span className="font-medium text-gray-800 inline-flex items-center">
-                                    <FiGrid className="h-4 w-4 mr-2 text-gray-600" />
+                                    <FiGrid className="h-5 w-5 mr-2 text-primary" />
                                     Organization
                                 </span>
                                 <button onClick={() => setActiveTab('organization')} className="text-gray-400 hover:text-gray-600">
                                     <FiEdit2 className="w-4 h-4" />
                                 </button>
                             </div>
-                            <div className="text-sm text-gray-700 space-y-1">
+                            <div className="text-sm text-gray-700 flex flex-col space-y-2">
                                 <div className="inline-flex items-start">
-                                    <FiTag className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <FiTag className="h-4 w-4 mr-2 mt-0.5 text-primary" />
                                     <span>Brand: <span className="font-medium text-gray-900">{brands.find(b => b._id === formData.brand)?.name || 'Not specified'}</span></span>
                                 </div>
                                 <div className="inline-flex items-start">
-                                    <FiLayers className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <FiLayers className="h-4 w-4 mr-2 mt-0.5 text-primary" />
                                     <span>Categories: <span className="text-gray-900">{formData.categories.length > 0 ? categories.filter(c => formData.categories.includes(c._id)).map(c => c.name).join(', ') : 'None selected'}</span></span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                             <div className="flex items-center justify-between mb-3">
                                 <span className="font-medium text-gray-800 inline-flex items-center">
-                                    <FiDollarSign className="h-4 w-4 mr-2 text-gray-600" />
+                                    <FiDollarSign className="h-5 w-5 mr-2 text-primary" />
                                     Pricing
                                 </span>
                                 <button onClick={() => setActiveTab('pricing')} className="text-gray-400 hover:text-gray-600">
                                     <FiEdit2 className="w-4 h-4" />
                                 </button>
                             </div>
-                            <div className="text-sm text-gray-700 space-y-1">
+                            <div className="text-sm text-gray-700 flex flex-col space-y-2">
                                 <div className="inline-flex items-start">
-                                    <FiDollarSign className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <FiDollarSign className="h-4 w-4 mr-2 mt-0.5 text-primary" />
                                     <span>Base Price: <span className="font-medium text-gray-900">KES {formData.basePrice || '0.00'}</span></span>
                                 </div>
                                 <div className="inline-flex items-start">
-                                    <FiDollarSign className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <FiDollarSign className="h-4 w-4 mr-2 mt-0.5 text-primary" />
                                     <span>Compare at: <span className="text-gray-900">{formData.comparePrice ? `KES ${formData.comparePrice}` : '—'}</span></span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                             <div className="flex items-center justify-between mb-3">
                                 <span className="font-medium text-gray-800 inline-flex items-center">
-                                    <FiLayers className="h-4 w-4 mr-2 text-gray-600" />
+                                    <FiBox className="h-5 w-5 mr-2 text-primary" />
                                     Variants
                                 </span>
                                 <button onClick={() => setActiveTab('variants')} className="text-gray-400 hover:text-gray-600">
@@ -1175,7 +1266,7 @@ const EditProduct = () => {
                                                     </div>
                                                     <div className="mt-2 pl-6">
                                                         <div className="text-xs font-medium text-gray-600 inline-flex items-center mb-1">
-                                                            <FiTag className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
+                                                            <FiTag className="h-3.5 w-3.5 mr-1.5 text-primary" />
                                                             Selected Options
                                                         </div>
                                                         {selectedOptionValues.length > 0 ? (
@@ -1207,10 +1298,10 @@ const EditProduct = () => {
                             </div>
                         </div>
 
-                        <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                             <div className="flex items-center justify-between mb-3">
                                 <span className="font-medium text-gray-800 inline-flex items-center">
-                                    <FiImage className="h-4 w-4 mr-2 text-gray-600" />
+                                    <FiImage className="h-5 w-5 mr-2 text-primary" />
                                     Images
                                 </span>
                                 <button onClick={() => setActiveTab('images')} className="text-gray-400 hover:text-gray-600">
@@ -1218,28 +1309,28 @@ const EditProduct = () => {
                                 </button>
                             </div>
                             <div className="text-sm text-gray-700 inline-flex items-center">
-                                <FiImage className="h-4 w-4 mr-2 text-gray-500" />
+                                <FiImage className="h-4 w-4 mr-2 text-primary" />
                                 {newImages.length + existingImages.length} uploaded
                             </div>
                         </div>
 
-                        <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                             <div className="flex items-center justify-between mb-3">
                                 <span className="font-medium text-gray-800 inline-flex items-center">
-                                    <FiPackage className="h-4 w-4 mr-2 text-gray-600" />
+                                    <FiPackage className="h-5 w-5 mr-2 text-primary" />
                                     Settings
                                 </span>
                                 <button onClick={() => setActiveTab('settings')} className="text-gray-400 hover:text-gray-600">
                                     <FiEdit2 className="w-4 h-4" />
                                 </button>
                             </div>
-                            <div className="text-sm text-gray-700 space-y-1">
+                            <div className="text-sm text-gray-700 flex flex-col space-y-2">
                                 <div className="inline-flex items-start">
-                                    <FiCheck className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <FiCheck className="h-4 w-4 mr-2 mt-0.5 text-primary" />
                                     <span>Status: <span className="font-medium capitalize text-gray-900">{formData.status}</span></span>
                                 </div>
                                 <div className="inline-flex items-start">
-                                    <FiPlus className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <FiPlus className="h-4 w-4 mr-2 mt-0.5 text-primary" />
                                     <span>Features: <span className="text-gray-900">{formData.features.length} added</span></span>
                                 </div>
                             </div>
@@ -1254,47 +1345,40 @@ const EditProduct = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 py-8">
+        <div className="min-h-screen bg-gray-50 flex flex-col py-8">
             {/* Header */}
-            <div className="max-w-6xl mx-auto px-6 mb-8">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-                    <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <h1 className="title2">Edit Product</h1>
-                            <p className="text-gray-600">Update product information with variants and SKUs</p>
+            <div className=" px-6  mb-8">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 flex flex-col">
+                    <div className="p-8 pb-0">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h1 className="title2">Edit Product</h1>
+                                <p className="text-gray-600">Update product information with variants and SKUs</p>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Tabs Navigation */}
-                    <div className="border-b border-gray-200 mb-6">
-                        <nav className="flex space-x-8 overflow-x-auto">
-                            {tabs.map((tab) => {
-                                const Icon = tab.icon
-                                return (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`flex items-center py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                                            activeTab === tab.id
-                                                ? 'border-primary text-primary'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <Icon className="mr-2 h-4 w-4" />
-                                        {tab.label}
-                                    </button>
-                                )
-                            })}
-                        </nav>
+                    {/* Step Header */}
+                    <div className="rounded-2xl border-t border-gray-200">
+                        {renderStepHeader()}
+
+                        {/* Step indicator in header right */}
+                        <div className="p-4 border-b border-gray-100 flex justify-end">
+                            <span className="text-sm font-semibold text-primary">
+                                Step {currentStep} of {tabs.length}
+                            </span>
+                        </div>
                     </div>
 
                     {/* Tab Content */}
-                    <div className="min-h-[400px]">
-                        {renderTabContent()}
+                    <div className="p-6 flex-1 flex flex-col">
+                        <div className="flex-1">
+                            {renderTabContent()}
+                        </div>
                     </div>
 
                     {/* Tab Navigation Actions */}
-                    <div className="flex items-center justify-between pt-6 border-t border-gray-200 mt-8">
+                    <div className="flex items-center justify-between pt-6 border-t border-gray-200 mt-auto p-6">
                         {/* Left side - Previous button or Cancel */}
                         <div>
                             {activeTab === 'basic' ? (
