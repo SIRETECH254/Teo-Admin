@@ -23,8 +23,11 @@ const Cart = () => {
     const [isApplyingCoupon, setIsApplyingCoupon] = useState(false)
 
     // Memoize cart data to prevent unnecessary re-computations
-    const cart = useMemo(() => cartData?.data?.data, [cartData])
+    // Backend returns: { success: true, data: { cart object with items, totalItems, totalAmount } }
+    const cart = useMemo(() => cartData?.data || null, [cartData])
     const cartItems = useMemo(() => cart?.items || [], [cart])
+    const totalItems = useMemo(() => cart?.totalItems || 0, [cart])
+    const totalAmount = useMemo(() => cart?.totalAmount || 0, [cart])
 
     // Memoize utility functions to prevent unnecessary re-computations
     const getProductImage = useCallback((product) => {
@@ -265,49 +268,48 @@ const Cart = () => {
                         <FiArrowLeft className="w-5 h-5" />
                     </button>
                     <h1 className="text-2xl font-bold text-gray-900">Shopping Cart</h1>
-                    <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm">
-                        {cartItems.length} item{cartItems.length !== 1 ? 's' : ''}
+                    <span className="bg-gray-100 text-gray-600 px-3 py-1 rounded-full text-sm font-medium">
+                        {totalItems} item{totalItems !== 1 ? 's' : ''}
                     </span>
                 </div>
 
-                <div className=" space-y-8">
+                <div className="space-y-8">
                     {/* Cart Items */}
-                    <div className="">
+                    <div>
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                             <div className="p-6">
                                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Cart Items</h2>
                                 
                                 <div className="space-y-4">
                                     {cartItems.map((item, index) => (
-                                        <div key={item._id}>
-                                            <div className="p-4 border border-gray-200 rounded-lg">
+                                        <div key={item._id || index}>
+                                            <div className="p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">
                                                 {/* Main row - Product Image and Details */}
-                                                <div className="flex items-start space-x-4">
+                                                <div className="flex items-start gap-4">
                                                     {/* Product Image */}
                                                     <div className="flex-shrink-0">
                                                         {getProductImage(item.productId) ? (
-                                                            <>
-                                                                <img
-                                                                    src={getProductImage(item.productId)}
-                                                                    alt={item.productId?.title || 'Product'}
-                                                                    className="w-20 h-20 object-cover rounded-lg"
-                                                                    onError={(e) => {
-                                                                        e.target.style.display = 'none'
-                                                                        e.target.nextSibling.style.display = 'flex'
-                                                                    }}
-                                                                />
-                                                                
-                                                            </>
-                                                        ) : (
-                                                            <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
-                                                                <FiShoppingCart className="w-8 h-8 text-gray-400" />
-                                                            </div>
-                                                        )}
+                                                            <img
+                                                                src={getProductImage(item.productId)}
+                                                                alt={item.productId?.title || 'Product'}
+                                                                className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                                                                onError={(e) => {
+                                                                    e.target.style.display = 'none'
+                                                                    e.target.nextSibling.style.display = 'flex'
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                        <div 
+                                                            className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200"
+                                                            style={{ display: getProductImage(item.productId) ? 'none' : 'flex' }}
+                                                        >
+                                                            <FiShoppingCart className="w-8 h-8 text-gray-400" />
+                                                        </div>
                                                     </div>
 
                                                     {/* Product Details */}
                                                     <div className="flex-1 min-w-0">
-                                                        <h3 className="text-base font-semibold text-gray-900 mb-1">
+                                                        <h3 className="text-base font-semibold text-gray-900 mb-1 line-clamp-2">
                                                             {item.productId?.title || 'Product Name'}
                                                         </h3>
 
@@ -315,54 +317,25 @@ const Cart = () => {
                                                             {formatVariantOptions(item.variantOptions)}
                                                         </p>
 
-                                                        <p className="text-lg font-bold text-primary">
-                                                            KSh {item.price?.toFixed(2) || '0.00'}
-                                                        </p>
+                                                        <div className="flex items-baseline gap-2">
+                                                            <p className="text-lg font-bold text-primary">
+                                                                KSh {(item.price || 0).toFixed(2)}
+                                                            </p>
+                                                            {item.quantity > 1 && (
+                                                                <span className="text-sm text-gray-500">
+                                                                    × {item.quantity} = KSh {((item.price || 0) * item.quantity).toFixed(2)}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     </div>
 
                                                     {/* Quantity Controls - Hidden on mobile, shown on lg+ screens */}
-                                                    <div className="hidden lg:flex items-center space-x-1">
-                                                        <button
-                                                            onClick={() => handleQuantityChange(item.skuId, item.quantity - 1)}
-                                                            disabled={item.quantity <= 1 || updateCartItem.isPending}
-                                                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-light hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                                        >
-                                                            <FiMinus className="w-3 h-3" />
-                                                        </button>
-
-                                                        <span className="w-10 text-center text-sm font-medium">
-                                                            {item.quantity}
-                                                        </span>
-
-                                                        <button
-                                                            onClick={() => handleQuantityChange(item.skuId, item.quantity + 1)}
-                                                            disabled={updateCartItem.isPending}
-                                                            className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-light hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                                        >
-                                                            <FiPlus className="w-3 h-3" />
-                                                        </button>
-                                                    </div>
-
-                                                    {/* Remove Button - Hidden on mobile, shown on lg+ screens */}
-                                                    <button
-                                                        onClick={() => handleRemoveItem(item.skuId)}
-                                                        disabled={removeFromCart.isPending}
-                                                        className="hidden lg:block text-red-600 hover:text-red-700 transition-colors p-2"
-                                                        title="Remove item"
-                                                    >
-                                                        <FiTrash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-
-                                                {/* Mobile Controls Row - Visible only on mobile */}
-                                                <div className="lg:hidden mt-3">
-                                                    <div className="flex items-center justify-between">
-                                                        {/* Quantity Controls - Aligned with product details */}
-                                                        <div className="flex items-center space-x-2 ml-24">
+                                                    <div className="hidden lg:flex items-center gap-2">
+                                                        <div className="flex items-center gap-1 border border-gray-300 rounded-lg p-1">
                                                             <button
                                                                 onClick={() => handleQuantityChange(item.skuId, item.quantity - 1)}
                                                                 disabled={item.quantity <= 1 || updateCartItem.isPending}
-                                                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-light hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                                className="w-8 h-8 rounded flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                                             >
                                                                 <FiMinus className="w-3 h-3" />
                                                             </button>
@@ -374,13 +347,51 @@ const Cart = () => {
                                                             <button
                                                                 onClick={() => handleQuantityChange(item.skuId, item.quantity + 1)}
                                                                 disabled={updateCartItem.isPending}
-                                                                className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-light hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                                className="w-8 h-8 rounded flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                                             >
                                                                 <FiPlus className="w-3 h-3" />
                                                             </button>
                                                         </div>
 
-                                                        {/* Remove Button - Just Icon */}
+                                                        {/* Remove Button - Hidden on mobile, shown on lg+ screens */}
+                                                        <button
+                                                            onClick={() => handleRemoveItem(item.skuId)}
+                                                            disabled={removeFromCart.isPending}
+                                                            className="text-red-600 hover:text-red-700 transition-colors p-2 hover:bg-red-50 rounded"
+                                                            title="Remove item"
+                                                        >
+                                                            <FiTrash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Mobile Controls Row - Visible only on mobile */}
+                                                <div className="lg:hidden mt-3 pt-3 border-t border-gray-200">
+                                                    <div className="flex items-center justify-between">
+                                                        {/* Quantity Controls */}
+                                                        <div className="flex items-center gap-1 border border-gray-300 rounded-lg p-1">
+                                                            <button
+                                                                onClick={() => handleQuantityChange(item.skuId, item.quantity - 1)}
+                                                                disabled={item.quantity <= 1 || updateCartItem.isPending}
+                                                                className="w-8 h-8 rounded flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                            >
+                                                                <FiMinus className="w-3 h-3" />
+                                                            </button>
+
+                                                            <span className="w-10 text-center text-sm font-medium">
+                                                                {item.quantity}
+                                                            </span>
+
+                                                            <button
+                                                                onClick={() => handleQuantityChange(item.skuId, item.quantity + 1)}
+                                                                disabled={updateCartItem.isPending}
+                                                                className="w-8 h-8 rounded flex items-center justify-center hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                            >
+                                                                <FiPlus className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Remove Button */}
                                                         <button
                                                             onClick={() => handleRemoveItem(item.skuId)}
                                                             disabled={removeFromCart.isPending}
@@ -414,7 +425,7 @@ const Cart = () => {
                     </div>
 
                     {/* Cart Summary */}
-                    <div className="">
+                    <div>
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-4">
                             <h2 className="text-lg font-semibold text-gray-900 mb-4">Cart Summary</h2>
 
@@ -475,6 +486,14 @@ const Cart = () => {
                                     <span className="text-gray-600">Subtotal</span>
                                     <span className="font-medium">KSh {calculateSubtotal.toFixed(2)}</span>
                                 </div>
+                                
+                                {/* Show backend totalAmount if it differs from calculated subtotal (for reference) */}
+                                {Math.abs(totalAmount - calculateSubtotal) > 0.01 && (
+                                    <div className="flex justify-between text-xs text-gray-500">
+                                        <span>Backend Total</span>
+                                        <span>KSh {totalAmount.toFixed(2)}</span>
+                                    </div>
+                                )}
 
                                 {appliedCoupon ? (
                                     <>

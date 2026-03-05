@@ -8,6 +8,7 @@ export const useGetCart = () => {
         queryKey: ['cart'],
         queryFn: async () => {
             const response = await cartAPI.getCart()
+            // Backend returns: { success: true, data: { cart object } }
             return response.data
         },
         staleTime: 5 * 60 * 1000, // 5 minutes

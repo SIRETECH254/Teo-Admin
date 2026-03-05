@@ -242,6 +242,30 @@ const EditProduct = () => {
             console.log('Final form data variants:', result.variants)
             return result
         })
+        
+        // If variant is deselected, remove its options from selectedVariantOptions
+        if (field === 'variants' && !checked) {
+            const valueId = typeof value === 'object' && value._id ? value._id : value
+            setSelectedVariantOptions(prev => {
+                const updated = { ...prev }
+                delete updated[valueId]
+                return updated
+            })
+        }
+    }, [])
+
+    // Handle variant option selection/deselection from the variant checkboxes grid
+    const handleVariantOptionToggle = useCallback((variantId, optionId, checked) => {
+        setSelectedVariantOptions(prev => {
+            const currentOptions = Array.isArray(prev[variantId]) ? prev[variantId] : []
+            if (checked) {
+                if (!currentOptions.includes(optionId)) {
+                    return { ...prev, [variantId]: [...currentOptions, optionId] }
+                }
+                return prev
+            }
+            return { ...prev, [variantId]: currentOptions.filter(id => id !== optionId) }
+        })
     }, [])
 
     // Memoize image handling functions
@@ -296,9 +320,10 @@ const EditProduct = () => {
 
 
     const handleVariantOptionSelect = useCallback((variantId, optionId) => {
+        // Preview selector is single-select; keep state shape consistent as an array.
         setSelectedVariantOptions(prev => ({
             ...prev,
-            [variantId]: optionId
+            [variantId]: optionId ? [optionId] : []
         }))
     }, [])
 
@@ -353,6 +378,15 @@ const EditProduct = () => {
             // Build selectedVariantOptions in backend format
             const selectedVariantOptionsFormatted = buildSelectedVariantOptions()
             console.log('Formatted selectedVariantOptions:', selectedVariantOptionsFormatted)
+            const keepImagePublicIds = existingImages
+                .map(img => img.public_id)
+                .filter(Boolean)
+            const keepImageDocIds = existingImages
+                .map(img => img._id)
+                .filter(Boolean)
+            const selectedVariantOptionsJson = JSON.stringify(selectedVariantOptionsFormatted || [])
+            const keepImagePublicIdsJson = JSON.stringify(keepImagePublicIds || [])
+            const keepImageDocIdsJson = JSON.stringify(keepImageDocIds || [])
 
             // Conditional payload: FormData if new images exist, JSON otherwise
             let payload
@@ -370,7 +404,7 @@ const EditProduct = () => {
                 })
 
                 // Add selectedVariantOptions as JSON string
-                fd.append('selectedVariantOptions', JSON.stringify(selectedVariantOptionsFormatted))
+                fd.append('selectedVariantOptions', selectedVariantOptionsJson)
 
                 // IMPORTANT: append each new file individually (DO NOT append the array)
                 newImages.forEach((file) => {
@@ -379,20 +413,20 @@ const EditProduct = () => {
 
                 // send which existing images to KEEP (so backend knows not to delete them)
                 // Include both document IDs and Cloudinary public IDs for robustness
-                fd.append("keepImagePublicIds", JSON.stringify(existingImages.map(img => img.public_id).filter(Boolean)))
-                fd.append("keepImageDocIds", JSON.stringify(existingImages.map(img => img._id).filter(Boolean)))
+                fd.append("keepImagePublicIds", keepImagePublicIdsJson)
+                fd.append("keepImageDocIds", keepImageDocIdsJson)
                 // Backward compatibility for older backend handlers (optional)
-                fd.append("keepImages", JSON.stringify(existingImages.map(img => img.public_id).filter(Boolean)))
+                fd.append("keepImages", keepImagePublicIdsJson)
 
                 payload = fd
             } else {
                 // Send JSON when no new images
                 payload = {
                     ...formData,
-                    selectedVariantOptions: selectedVariantOptionsFormatted,
-                    keepImagePublicIds: existingImages.map(img => img.public_id).filter(Boolean),
-                    keepImageDocIds: existingImages.map(img => img._id).filter(Boolean),
-                    keepImages: existingImages.map(img => img.public_id).filter(Boolean) // backward compat
+                    selectedVariantOptions: selectedVariantOptionsJson,
+                    keepImagePublicIds: keepImagePublicIdsJson,
+                    keepImageDocIds: keepImageDocIdsJson,
+                    keepImages: keepImagePublicIdsJson // backward compat
                 }
             }
 
@@ -1034,83 +1068,185 @@ const EditProduct = () => {
                 )
 
             case 'summary':
+                {
+                const selectedVariantsForSummary = variants.filter(v => {
+                    const variantId = typeof v._id === 'object' ? v._id._id : v._id
+                    return formData.variants.some(item => {
+                        const itemId = typeof item === 'object' && item._id ? item._id : item
+                        return itemId === variantId
+                    })
+                })
+
                 return (
                     <div className="space-y-4">
                         <div className="bg-gray-50 rounded-lg p-4">
                             <div className="flex items-center justify-between mb-3">
-                                <span className="font-medium text-gray-800">Basic Info</span>
+                                <span className="font-medium text-gray-800 inline-flex items-center">
+                                    <FiInfo className="h-4 w-4 mr-2 text-gray-600" />
+                                    Basic Info
+                                </span>
                                 <button onClick={() => setActiveTab('basic')} className="text-gray-400 hover:text-gray-600">
                                     <FiEdit2 className="w-4 h-4" />
                                 </button>
                             </div>
                             <div className="text-sm text-gray-700 space-y-1">
-                                <div>Title: <span className="font-medium text-gray-900">{formData.title || 'Not specified'}</span></div>
-                                <div>Short Description: <span className="text-gray-900">{formData.shortDescription || '—'}</span></div>
+                                <div className="inline-flex items-start">
+                                    <FiInfo className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <span>Title: <span className="font-medium text-gray-900">{formData.title || 'Not specified'}</span></span>
+                                </div>
+                                <div className="inline-flex items-start">
+                                    <FiEye className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <span>Short Description: <span className="text-gray-900">{formData.shortDescription || '—'}</span></span>
+                                </div>
                             </div>
                         </div>
 
                         <div className="bg-gray-50 rounded-lg p-4">
                             <div className="flex items-center justify-between mb-3">
-                                <span className="font-medium text-gray-800">Organization</span>
+                                <span className="font-medium text-gray-800 inline-flex items-center">
+                                    <FiGrid className="h-4 w-4 mr-2 text-gray-600" />
+                                    Organization
+                                </span>
                                 <button onClick={() => setActiveTab('organization')} className="text-gray-400 hover:text-gray-600">
                                     <FiEdit2 className="w-4 h-4" />
                                 </button>
                             </div>
                             <div className="text-sm text-gray-700 space-y-1">
-                                <div>Brand: <span className="font-medium text-gray-900">{brands.find(b => b._id === formData.brand)?.name || 'Not specified'}</span></div>
-                                <div>Categories: <span className="text-gray-900">{formData.categories.length > 0 ? categories.filter(c => formData.categories.includes(c._id)).map(c => c.name).join(', ') : 'None selected'}</span></div>
+                                <div className="inline-flex items-start">
+                                    <FiTag className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <span>Brand: <span className="font-medium text-gray-900">{brands.find(b => b._id === formData.brand)?.name || 'Not specified'}</span></span>
+                                </div>
+                                <div className="inline-flex items-start">
+                                    <FiLayers className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <span>Categories: <span className="text-gray-900">{formData.categories.length > 0 ? categories.filter(c => formData.categories.includes(c._id)).map(c => c.name).join(', ') : 'None selected'}</span></span>
+                                </div>
                             </div>
                         </div>
 
                         <div className="bg-gray-50 rounded-lg p-4">
                             <div className="flex items-center justify-between mb-3">
-                                <span className="font-medium text-gray-800">Pricing</span>
+                                <span className="font-medium text-gray-800 inline-flex items-center">
+                                    <FiDollarSign className="h-4 w-4 mr-2 text-gray-600" />
+                                    Pricing
+                                </span>
                                 <button onClick={() => setActiveTab('pricing')} className="text-gray-400 hover:text-gray-600">
                                     <FiEdit2 className="w-4 h-4" />
                                 </button>
                             </div>
                             <div className="text-sm text-gray-700 space-y-1">
-                                <div>Base Price: <span className="font-medium text-gray-900">KES {formData.basePrice || '0.00'}</span></div>
-                                <div>Compare at: <span className="text-gray-900">{formData.comparePrice ? `KES ${formData.comparePrice}` : '—'}</span></div>
+                                <div className="inline-flex items-start">
+                                    <FiDollarSign className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <span>Base Price: <span className="font-medium text-gray-900">KES {formData.basePrice || '0.00'}</span></span>
+                                </div>
+                                <div className="inline-flex items-start">
+                                    <FiDollarSign className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <span>Compare at: <span className="text-gray-900">{formData.comparePrice ? `KES ${formData.comparePrice}` : '—'}</span></span>
+                                </div>
                             </div>
                         </div>
 
                         <div className="bg-gray-50 rounded-lg p-4">
                             <div className="flex items-center justify-between mb-3">
-                                <span className="font-medium text-gray-800">Variants</span>
+                                <span className="font-medium text-gray-800 inline-flex items-center">
+                                    <FiLayers className="h-4 w-4 mr-2 text-gray-600" />
+                                    Variants
+                                </span>
                                 <button onClick={() => setActiveTab('variants')} className="text-gray-400 hover:text-gray-600">
                                     <FiEdit2 className="w-4 h-4" />
                                 </button>
                             </div>
                             <div className="text-sm text-gray-700">
-                                {formData.variants.length > 0 ? variants.filter(v => formData.variants.includes(v._id)).map(v => v.name).join(', ') : 'No variants'}
+                                {selectedVariantsForSummary.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {selectedVariantsForSummary.map(variant => {
+                                            const variantId = typeof variant._id === 'object' ? variant._id._id : variant._id
+                                            const selectedOptionIds = Array.isArray(selectedVariantOptions[variantId])
+                                                ? selectedVariantOptions[variantId]
+                                                : []
+                                            const selectedOptionValues = (variant.options || [])
+                                                .filter(option => selectedOptionIds.includes(option._id))
+                                                .map(option => option.value)
+
+                                            return (
+                                                <div key={variantId} className="bg-white border border-gray-200 rounded-md p-3">
+                                                    <div className="flex items-center text-gray-900 font-medium">
+                                                        <FiBox className="h-4 w-4 mr-2 text-primary" />
+                                                        {variant.name}
+                                                    </div>
+                                                    <div className="mt-2 pl-6">
+                                                        <div className="text-xs font-medium text-gray-600 inline-flex items-center mb-1">
+                                                            <FiTag className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
+                                                            Selected Options
+                                                        </div>
+                                                        {selectedOptionValues.length > 0 ? (
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {selectedOptionValues.map(optionValue => (
+                                                                    <span
+                                                                        key={`${variantId}-${optionValue}`}
+                                                                        className="inline-flex items-center px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium"
+                                                                    >
+                                                                        <FiCheck className="h-3 w-3 mr-1" />
+                                                                        {optionValue}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-xs text-gray-500">No options selected</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                ) : (
+                                    <span className="inline-flex items-center text-gray-500">
+                                        <FiX className="h-4 w-4 mr-2" />
+                                        No variants
+                                    </span>
+                                )}
                             </div>
                         </div>
 
                         <div className="bg-gray-50 rounded-lg p-4">
                             <div className="flex items-center justify-between mb-3">
-                                <span className="font-medium text-gray-800">Images</span>
+                                <span className="font-medium text-gray-800 inline-flex items-center">
+                                    <FiImage className="h-4 w-4 mr-2 text-gray-600" />
+                                    Images
+                                </span>
                                 <button onClick={() => setActiveTab('images')} className="text-gray-400 hover:text-gray-600">
                                     <FiEdit2 className="w-4 h-4" />
                                 </button>
                             </div>
-                            <div className="text-sm text-gray-700">{newImages.length + existingImages.length} uploaded</div>
+                            <div className="text-sm text-gray-700 inline-flex items-center">
+                                <FiImage className="h-4 w-4 mr-2 text-gray-500" />
+                                {newImages.length + existingImages.length} uploaded
+                            </div>
                         </div>
 
                         <div className="bg-gray-50 rounded-lg p-4">
                             <div className="flex items-center justify-between mb-3">
-                                <span className="font-medium text-gray-800">Settings</span>
+                                <span className="font-medium text-gray-800 inline-flex items-center">
+                                    <FiPackage className="h-4 w-4 mr-2 text-gray-600" />
+                                    Settings
+                                </span>
                                 <button onClick={() => setActiveTab('settings')} className="text-gray-400 hover:text-gray-600">
                                     <FiEdit2 className="w-4 h-4" />
                                 </button>
                             </div>
                             <div className="text-sm text-gray-700 space-y-1">
-                                <div>Status: <span className="font-medium capitalize text-gray-900">{formData.status}</span></div>
-                                <div>Features: <span className="text-gray-900">{formData.features.length} added</span></div>
+                                <div className="inline-flex items-start">
+                                    <FiCheck className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <span>Status: <span className="font-medium capitalize text-gray-900">{formData.status}</span></span>
+                                </div>
+                                <div className="inline-flex items-start">
+                                    <FiPlus className="h-4 w-4 mr-2 mt-0.5 text-gray-500" />
+                                    <span>Features: <span className="text-gray-900">{formData.features.length} added</span></span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 )
+                }
 
             default:
                 return null
