@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useGetVariants, useDeleteVariant } from '../../hooks/useVariants'
-import { FiPlus, FiEdit, FiTrash2, FiSearch, FiFilter, FiGrid, FiAlertTriangle, FiX, FiList } from 'react-icons/fi'
+import { FiPlus, FiEdit, FiTrash2, FiSearch, FiFilter, FiGrid, FiAlertTriangle, FiX, FiList, FiEye } from 'react-icons/fi'
 import Pagination from '../../components/common/Pagination'
 import toast from 'react-hot-toast'
 import StatusBadge from '../../components/common/StatusBadge'
@@ -305,6 +305,13 @@ const Variants = () => {
                                     </td>
                                     <td className="table-cell">
                                         <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => navigate(`/variants/${variant._id}`)}
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-blue-600 transition hover:bg-blue-50"
+                                                title="View variant details"
+                                            >
+                                                <FiEye className="h-4 w-4" />
+                                            </button>
                                             <button
                                                 onClick={() => handleEdit(variant)}
                                                 className="flex items-center justify-center rounded-lg bg-white p-2 text-primary transition hover:bg-primary/10"

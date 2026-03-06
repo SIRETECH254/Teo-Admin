@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { FiUser, FiMail, FiPhone, FiEdit, FiArrowLeft, FiSave, FiX } from 'react-icons/fi'
+import { FiUser, FiMail, FiPhone, FiEdit, FiArrowLeft, FiSave, FiX, FiAlertTriangle } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
 const Profile = () => {
-  const { user, updateProfile } = useAuth()
+  const { user, updateProfile, isLoading, error } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -60,19 +60,34 @@ const Profile = () => {
     setIsEditing(false)
   }
 
-  if (!user) {
-    return (
-      <div className="p-6 max-w-4xl mx-auto">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading profile...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      {/* Loading skeleton */}
+      {isLoading && (
+        <div className="mb-8">
+          <div className="h-6 w-32 animate-pulse rounded bg-gray-300 mb-4" />
+          <div className="h-10 w-48 animate-pulse rounded bg-gray-300 mb-2" />
+          <div className="h-4 w-64 animate-pulse rounded bg-gray-300" />
+        </div>
+      )}
+
+      {/* Error state */}
+      {error && !isLoading && (
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <div className="text-center">
+            <FiAlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Error loading profile</h2>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <Link to="/settings" className="btn-primary inline-block">
+              Back to Settings
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Data state */}
+      {!isLoading && !error && user && (
+        <>
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-4">
@@ -262,6 +277,8 @@ const Profile = () => {
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   )
 }

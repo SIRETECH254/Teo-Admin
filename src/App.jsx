@@ -28,6 +28,7 @@ import EditCollection from './pages/classifications/collection/EditCollection'
 import Variants from './pages/variant/Variants'
 import AddVariant from './pages/variant/AddVariant'
 import EditVariant from './pages/variant/EditVariant'
+import VariantDetail from './pages/variant/VariantDetail'
 import Products from './pages/products/Products'
 import AddProduct from './pages/products/AddProduct'
 import EditProduct from './pages/products/EditProduct'
@@ -63,6 +64,7 @@ import Profile from './pages/settings/Profile'
 import Address from './pages/settings/Address'
 import ChangePassword from './pages/settings/ChangePassword'
 import StoreConfigurations from './pages/settings/StoreConfigurations'
+import EditStoreConfigurations from './pages/settings/EditStoreConfigurations'
 
 // Main Layout - only for authenticated users (must be inside AuthProvider)
 const Layout = () => {
@@ -145,6 +147,7 @@ function App() {
               <Route path="/tags/:id/edit" element={<EditTag />} />
               <Route path="/variants" element={<Variants />} />
               <Route path="/variants/add" element={<AddVariant />} />
+              <Route path="/variants/:id" element={<VariantDetail />} />
               <Route path="/variants/:id/edit" element={<EditVariant />} />
 
               {/* Settings Routes */}
@@ -153,6 +156,7 @@ function App() {
               <Route path="/settings/address" element={<Address />} />
               <Route path="/settings/change-password" element={<ChangePassword />} />
               <Route path="/settings/store-configurations" element={<StoreConfigurations />} />
+              <Route path="/settings/store-configurations/edit" element={<EditStoreConfigurations />} />
             </Route>
 
             {/* Public Routes */}
