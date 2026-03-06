@@ -26,7 +26,7 @@ const AddCustomer = () => {
 
     return (
         <div className="flex  justify-center p-4">
-            <div className="w-full max-w-md bg-white p-6 rounded-lg shadow border border-gray-200">
+            <div className="w-full  flex-1 p-6 rounded-lg shadow border border-gray-200">
                 <h1 className="title2 mb-4">Add Customer</h1>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>

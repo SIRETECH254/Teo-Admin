@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { FiSettings, FiGlobe, FiCreditCard, FiTruck, FiClock, FiDollarSign, FiArrowLeft, FiSave, FiRefreshCw, FiPlus, FiTrash2 } from 'react-icons/fi'
+import { FiSettings, FiGlobe, FiCreditCard, FiTruck, FiClock, FiDollarSign, FiArrowLeft, FiSave, FiRefreshCw } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 import {
   useGetStoreConfig,
   useCreateStoreConfig,
   useUpdateStoreConfig,
-  useDeleteStoreConfig,
   useInitStoreConfig
 } from '../../hooks/useStoreConfig'
 
@@ -65,10 +64,9 @@ const StoreConfigurations = () => {
   const { data: configData, isLoading: configLoading, error: configError, refetch } = useGetStoreConfig()
   const createConfigMutation = useCreateStoreConfig()
   const updateConfigMutation = useUpdateStoreConfig()
-  const deleteConfigMutation = useDeleteStoreConfig()
   const initConfigMutation = useInitStoreConfig()
 
-  const config = configData?.data?.config
+  const config = configData?.config
   const hasConfig = !!config
 
   const tabs = [
@@ -224,17 +222,7 @@ const StoreConfigurations = () => {
     }
   }
 
-  const handleDeleteConfig = async () => {
-    if (window.confirm('Are you sure you want to delete the store configuration? This action cannot be undone.')) {
-      try {
-        await deleteConfigMutation.mutateAsync()
-      } catch (error) {
-        console.error('Error deleting store configuration:', error)
-      }
-    }
-  }
-
-  const isLoading = configLoading || createConfigMutation.isPending || updateConfigMutation.isPending || deleteConfigMutation.isPending || initConfigMutation.isPending
+  const isLoading = configLoading || createConfigMutation.isPending || updateConfigMutation.isPending || initConfigMutation.isPending
 
   // Loading and error states
   if (configLoading) {
@@ -708,14 +696,6 @@ const StoreConfigurations = () => {
               >
                 <FiRefreshCw className="h-4 w-4" />
                 Reset to Default
-              </button>
-              <button
-                onClick={handleDeleteConfig}
-                disabled={isLoading}
-                className="flex items-center gap-2 px-4 py-2 text-red-600 border border-red-300 rounded-lg hover:bg-red-50 disabled:opacity-50"
-              >
-                <FiTrash2 className="h-4 w-4" />
-                Delete Config
               </button>
             </div>
           )}

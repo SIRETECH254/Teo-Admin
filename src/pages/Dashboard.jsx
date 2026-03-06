@@ -14,12 +14,12 @@ const Dashboard = () => {
     const { data: recentOrders = [] } = useGetRecentOrders({ page: 1, limit: 5 })
 
     // Memoized stats data
-    const stats = useMemo(() => overviewRes?.data || {}, [overviewRes?.data])
+    const stats = useMemo(() => overviewRes || {}, [overviewRes])
 
     // Memoized analytics series
-    const paidOrdersSeries = useMemo(() => analyticsRes?.data?.paidOrdersSeries || [], [analyticsRes?.data?.paidOrdersSeries])
-    const revenueSeries = useMemo(() => analyticsRes?.data?.revenueSeries || [], [analyticsRes?.data?.revenueSeries])
-    const customersSeries = useMemo(() => analyticsRes?.data?.customersSeries || [], [analyticsRes?.data?.customersSeries])
+    const paidOrdersSeries = useMemo(() => analyticsRes?.paidOrdersSeries || [], [analyticsRes?.paidOrdersSeries])
+    const revenueSeries = useMemo(() => analyticsRes?.revenueSeries || [], [analyticsRes?.revenueSeries])
+    const customersSeries = useMemo(() => analyticsRes?.customersSeries || [], [analyticsRes?.customersSeries])
 
     // Memoized calculation function
     const calcChange = useCallback((series, range) => {

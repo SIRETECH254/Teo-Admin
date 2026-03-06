@@ -339,7 +339,7 @@ const Customers = () => {
                                                     {(user.name || user.email || 'U').charAt(0).toUpperCase()}
                                                 </div>
                                             )}
-                                            <div>
+                                            <div className="whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">{user.name || '—'}</div>
                                                 <div className="text-xs text-gray-500">{new Date(user.createdAt).toLocaleDateString()}</div>
                                             </div>

@@ -471,6 +471,35 @@ export const couponAPI = {
     
 }
 
+// Role API calls
+export const roleAPI = {
+
+    // Get all roles
+    getAllRoles: (params) => api.get('api/roles', { params }),
+
+    // Get role by ID
+    getRoleById: (roleId) => api.get(`api/roles/${roleId}`),
+
+    // Create role (admin only)
+    createRole: (roleData) => api.post('api/roles', roleData),
+
+    // Update role (admin only)
+    updateRole: (roleId, roleData) => api.put(`api/roles/${roleId}`, roleData),
+
+    // Delete role (admin only)
+    deleteRole: (roleId) => api.delete(`api/roles/${roleId}`),
+
+    // Assign role to user (admin only)
+    assignRoleToUser: (roleId, userId) => api.post(`api/roles/${roleId}/assign/${userId}`),
+
+    // Remove role from user (admin only)
+    removeRoleFromUser: (roleId, userId) => api.delete(`api/roles/${roleId}/remove/${userId}`),
+
+    // Get users by role (admin only)
+    getUsersByRole: (roleId, params) => api.get(`api/roles/${roleId}/users`, { params }),
+    
+}
+
 // Store Configuration API calls
 export const storeConfigAPI = {
 
@@ -482,9 +511,6 @@ export const storeConfigAPI = {
 
     // Update store configuration (admin only)
     updateStoreConfig: (configData) => api.put('api/store-config', configData),
-
-    // Delete store configuration (admin only)
-    deleteStoreConfig: () => api.delete('api/store-config'),
 
     // Get store configuration status
     getStoreConfigStatus: () => api.get('api/store-config/status'),

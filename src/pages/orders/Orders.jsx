@@ -281,7 +281,7 @@ const Orders = () => {
                     <input type="checkbox" checked={selectedOrders.includes(order._id)} onChange={() => handleSelectOrder(order._id)} className="rounded border-gray-300 text-primary focus:ring-primary" />
                   </td>
                   <td className="table-cell">
-                    <div>
+                    <div className="whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{order?.invoice?.number || order._id}</div>
                       <div className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleString()}</div>
                     </div>
