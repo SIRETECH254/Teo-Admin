@@ -22,50 +22,6 @@ const ALL_STEPS = [
 ]
 
 
-const ProgressBar = ({ currentStep, totalSteps }) => {
-  return (
-    <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
-      <div 
-        className="bg-primary h-2 rounded-full transition-all duration-300"
-        style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
-      ></div>
-    </div>
-  )
-}
-
-
-
-
-const CheckmarksRow = ({ current, steps }) => {
-  return (
-    <div className="flex items-center justify-between gap-2 mb-4">
-      {steps.map((_, idx) => (
-        <div key={idx} className="flex items-center">
-          <div className={` w-5 h-5 sm:w-8 sm:h-8 text-xs sm:text-sm md:text-base  font-semibold rounded-full flex items-center justify-center ${
-            idx < current 
-              ? 'bg-primary text-white' 
-              : 'bg-light text-gray-500'
-          }`}>
-            {idx < current ? (
-              <svg className="w-3 h-3 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            ) : (
-              idx + 1
-            )}
-          </div>
-          {idx < steps.length - 1 && (
-            <div className={`sm:w-12 h-0.5 mx-2 ${
-              idx < current ? 'bg-primary' : 'bg-gray-200'
-            }`}/>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-
 const Checkout = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -200,6 +156,78 @@ const Checkout = () => {
   }, [orderType])
 
   const currentStepKey = activeSteps[currentStep]?.key
+
+  /**
+   * Render Step Indicator Header - Same approach as AddProduct page
+   */
+  const renderStepHeader = () => {
+    const progress = ((currentStep + 1) / activeSteps.length) * 100
+    
+    return (
+      <div className="space-y-4 p-3">
+        <div className="flex-row items-center justify-between flex">
+          {/* current step & label */}
+          <div className="flex-row items-center gap-x-2 flex">
+            <div className="h-5 w-5 rounded-full items-center justify-center bg-primary text-white text-xs font-bold flex">
+              {currentStep + 1}
+            </div>
+            <span className="text-sm font-semibold text-primary">
+              {activeSteps[currentStep]?.label}
+            </span>
+          </div>
+       
+          {/* Step numbers and labels */}
+          <div className="flex-row items-center gap-x-2 md:gap-x-4 lg:gap-x-6 flex">
+            {activeSteps.map((step, index) => {
+              const stepNumber = index + 1
+              const isActive = index === currentStep
+              const isCompleted = currentStep > index
+              
+              return (
+                <button
+                  key={step.key}
+                  onClick={() => setCurrentStep(index)}
+                  className="flex-1 items-center flex flex-col"
+                  type="button"
+                >
+                  <div className="items-center flex flex-col">
+                    {/* Step number circle */}
+                    <div className={`h-6 w-6 rounded-full items-center justify-center flex ${
+                      isActive 
+                        ? 'bg-primary' 
+                        : isCompleted 
+                          ? 'bg-primary/30' 
+                          : 'bg-gray-200'
+                    }`}>
+                      {isCompleted ? (
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <span className={`text-base font-bold ${
+                          isActive ? 'text-white' : 'text-gray-500'
+                        }`}>
+                          {stepNumber}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        
+        {/* Progress bar */}
+        <div className="h-2 bg-gray-100 rounded-full">
+          <div 
+            className="h-full bg-primary rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+    )
+  }
 
 
   const next = () => {
@@ -426,19 +454,18 @@ const Checkout = () => {
   return (
     <div className="container py-6">
       <div className="max-w-4xl mx-auto">
-      <h1 className="title3">Checkout</h1>
-        <div className="flex items-center justify-between mb-6">
-        <h1 className="text-sm text-primary font-semibold">{activeSteps[currentStep]?.label}</h1>
-          <div className="text-xs text-gray-600">
+        {/* Title and Step indicator */}
+        <div className="flex flex-row items-center justify-between mb-6">
+          <h1 className="title3">Checkout</h1>
+          <span className="text-sm font-semibold text-primary mt-2 sm:mt-0">
             Step {currentStep + 1} of {activeSteps.length}
-          </div>
+          </span>
         </div>
-
-        {/* Progress Bar */}
-        <ProgressBar currentStep={currentStep} totalSteps={activeSteps.length} />
-
-        {/* Checkmarks Row */}
-        <CheckmarksRow current={currentStep} steps={activeSteps} />
+        
+        {/* Step Header - Same approach as AddProduct page */}
+        <div className="mb-6">
+          {renderStepHeader()}
+        </div>
 
         {/* Step content */}
         <div className="">
