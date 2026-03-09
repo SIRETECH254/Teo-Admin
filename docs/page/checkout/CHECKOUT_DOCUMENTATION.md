@@ -18,15 +18,40 @@
 ```javascript
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { cartAPI, orderAPI, paymentAPI } from '../api'
+import { useQueryClient } from '@tanstack/react-query'
 import { useGetActivePackagingPublic } from '../hooks/usePackaging'
+import { useGetCart } from '../hooks/useCart'
+import { useCreateOrder } from '../hooks/useOrders'
+import { usePayInvoice } from '../hooks/usePayments'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
-import { FiEdit2, FiShoppingBag, FiClock, FiCreditCard, FiList } from 'react-icons/fi'
+import {
+  FiEdit2,
+  FiShoppingBag,
+  FiClock,
+  FiCreditCard,
+  FiList,
+  FiCheckCircle,
+  FiHome,
+  FiMapPin,
+  FiTruck,
+  FiPackage,
+  FiDollarSign,
+  FiSmartphone,
+  FiArrowLeft,
+  FiArrowRight,
+  FiInfo,
+  FiCheck,
+  FiLoader,
+} from 'react-icons/fi'
 ```
 
 ## Context and State Management
-- **TanStack Query hooks:** `useGetActivePackagingPublic` for packaging options.
+- **TanStack Query hooks:** 
+  - `useGetCart`: For fetching current cart data.
+  - `useGetActivePackagingPublic`: For packaging options.
+  - `useCreateOrder`: For creating the order.
+  - `usePayInvoice`: For initiating payments.
 - **AuthContext:** Uses `useAuth` hook to access `user` object.
 - **State management:** Local component state managed with `useState` hooks.
 - **Multi-step form state:**
@@ -43,7 +68,7 @@ import { FiEdit2, FiShoppingBag, FiClock, FiCreditCard, FiList } from 'react-ico
   - `orderId`: Created order ID
   - `invoiceId`: Created invoice ID
   - `coupon`: Applied coupon from localStorage
-- **Loading states:** `loading` for cart loading, `creating` for order creation, `paying` for payment initiation.
+- **Loading states:** `loading` for cart loading (from `useGetCart`), `creating` for order creation, `paying` for payment initiation.
 
 **Step configuration:**
 ```javascript
@@ -262,277 +287,86 @@ const ALL_STEPS = [
   ```
 
 ## API Integration
-- **HTTP client:** `axios` instance from `api/index.js` via `cartAPI`, `orderAPI`, `paymentAPI`.
-- **Get cart endpoint:** `GET /api/cart` (authenticated users only).
+- **TanStack Query hooks:** `useGetCart`, `useCreateOrder`, `usePayInvoice`.
 - **Create order endpoint:** `POST /api/orders` (authenticated users only).
-- **Get order by ID endpoint:** `GET /api/orders/:id` (authenticated users only).
 - **Pay invoice endpoint:** `POST /api/payments/pay-invoice` (authenticated users only).
 - **Payload for create order:** `{ location, type, timing, addressId, paymentPreference: { mode, method }, packagingOptionId, couponCode, cartId, metadata }`.
 - **Payload for pay invoice:** `{ invoiceId, method: 'mpesa_stk' | 'paystack_card', payerPhone | payerEmail }`.
-- **Response contract:** Order creation returns `{ data: { orderId } }`, invoice fetch returns order with `invoiceId`.
-- **Cart refresh:** After order creation, cart is refreshed to reflect cleared items.
+- **Response contract:** Order creation returns `{ orderId, invoiceId }` directly in the response data.
+- **Cart refresh:** Handled automatically by `useCreateOrder` hook on success (invalidates `cart` query).
 
 ## Components Used
 - React + React Router DOM: `useNavigate`.
 - AuthContext: `useAuth` hook.
-- TanStack Query: `useQuery`.
+- TanStack Query: `useQuery`, `useMutation`.
 - Form elements: `input`, `button`, `label`, `div`, `select`, `option`, `radio`.
-- `react-icons/fi` for icons (FiEdit2, FiShoppingBag, FiClock, FiCreditCard, FiList).
-- Custom components: `ProgressBar`, `CheckmarksRow`.
-- Tailwind CSS classes for styling with custom classes (`.title3`, `.input`, `.btn-primary`).
+- `react-icons/fi` for icons.
 - `react-hot-toast` for toast notifications.
 
 ## Error Handling
-- **Loading states:** "Loading..." message displayed while `loading` is true.
+- **Loading states:** `Loading...` message displayed while cart is loading.
 - **Empty cart protection:** Redirects to `/cart` if cart is empty.
-- **API errors:** Handled in try-catch blocks, displayed via toast notifications.
-- **Payment errors:** Errors during payment initiation are caught and displayed.
+- **API errors:** Handled in try-catch blocks and via mutation error callbacks, displayed via toast notifications.
 
 ## Navigation Flow
 - **Route:** `/checkout`.
 - **Entry points:**
   - From cart page via "Proceed to Checkout" button.
-  - Direct URL navigation (redirects to cart if empty).
 - **Step navigation:**
-  - Next button ➞ Advances to next step (validates current step if needed).
+  - Next button ➞ Advances to next step.
   - Back button ➞ Returns to previous step.
-  - Step completion ➞ On final step, creates order and initiates payment if needed.
-- **Payment flow:**
-  - M-Pesa STK ➞ Navigates to `/payment-status` with payment parameters.
-  - Paystack Card ➞ Opens payment URL in new tab, navigates to `/payment-status`.
-  - Cash/Post-to-Bill ➞ Creates order, navigates to `/payment-status` with order info.
-- **On completion:** Navigates to `/payment-status` with order and payment details.
+- **Order completion flow:**
+  - M-Pesa/Paystack ➞ Creates order, then initiates payment, then navigates to `/payment-status`.
+  - Cash/Post-to-Bill ➞ Creates order, then navigates directly to `/payment-status`.
 
 ## Functions Involved
 
-- **`next`** — Advances to next step.
-  ```javascript
-  const next = () => {
-      setCurrentStep((s) => Math.min(s + 1, activeSteps.length - 1))
-  }
-  ```
-
-- **`back`** — Returns to previous step.
-  ```javascript
-  const back = () => {
-      setCurrentStep((s) => Math.max(s - 1, 0))
-  }
-  ```
-
-- **`gotoStep`** — Jumps to specific step by key.
-  ```javascript
-  const gotoStep = (key) => {
-      const idx = activeSteps.findIndex((s) => s.key === key)
-      if (idx >= 0) setCurrentStep(idx)
-  }
-  ```
-
-- **`formatPhoneForMpesa`** — Formats phone number to M-Pesa format (254XXXXXXXXX).
-  ```javascript
-  const formatPhoneForMpesa = (phone) => {
-      if (!phone) return ''
-      const digits = phone.replace(/\D/g, '')
-      if (digits.startsWith('0')) {
-          return '254' + digits.substring(1)
-      }
-      if (digits.startsWith('254')) {
-          return digits
-      }
-      if (digits.length === 9) {
-          return '254' + digits
-      }
-      return digits
-  }
-  ```
-
-- **`createOrder`** — Creates order via API.
+- **`createOrder`** — Creates order via `useCreateOrder` mutation.
   ```javascript
   const createOrder = async () => {
-      try {
-          setCreating(true)
-          const payload = {
-              location,
-              type: orderType,
-              timing,
-              addressId: canShowAddress ? addressId : null,
-              paymentPreference: {
-                  mode: paymentMode,
-                  method: paymentMode === 'pay_now' ? paymentMethod : null,
-              },
-              packagingOptionId: canShowPackaging ? selectedPackagingId : null,
-              couponCode: coupon?.code || null,
-              cartId: null,
-              metadata: {},
-          }
-          const res = await orderAPI.createOrder(payload)
-          const createdOrderId = res.data?.data?.orderId
-          setOrderId(createdOrderId)
-          
-          const orderDetail = await orderAPI.getOrderById(createdOrderId)
-          const inv = orderDetail.data?.data?.order?.invoiceId
-          const createdInvoiceId = inv?._id || inv
-          setInvoiceId(createdInvoiceId)
-          
-          // Refresh cart
-          const cartRes = await cartAPI.getCart()
-          setCart(cartRes.data?.data)
-          
-          // Clear applied coupon
-          localStorage.removeItem('appliedCoupon')
-          
-          return { orderId: createdOrderId, invoiceId: createdInvoiceId }
-      } catch (e) {
-          toast.error(e?.response?.data?.message || 'Failed to create order')
-          throw e
-      } finally {
-          setCreating(false)
-      }
+    try {
+      setCreating(true)
+      const payload = { /* ... */ }
+      const res = await createOrderMutation.mutateAsync(payload)
+      const createdOrderId = res?.orderId
+      const createdInvoiceId = res?.invoiceId
+      
+      setOrderId(createdOrderId)
+      setInvoiceId(createdInvoiceId)
+      
+      localStorage.removeItem('appliedCoupon')
+      return { orderId: createdOrderId, invoiceId: createdInvoiceId }
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Failed to create order')
+      throw e
+    } finally {
+      setCreating(false)
+    }
   }
   ```
 
-- **`payInvoiceNow`** — Initiates payment for invoice.
+- **`payInvoiceNow`** — Initiates payment via `usePayInvoice` mutation.
   ```javascript
   const payInvoiceNow = async (explicitInvoiceId, explicitOrderId) => {
-      const targetInvoiceId = explicitInvoiceId || invoiceId
-      const targetOrderId = explicitOrderId || orderId
-      if (!targetInvoiceId) return
-      try {
-          setPaying(true)
-          if (paymentMethod === 'mpesa_stk') {
-              if (!payerPhone) return toast.error('Phone required')
-              const res = await paymentAPI.payInvoice({ 
-                  invoiceId: targetInvoiceId, 
-                  method: 'mpesa_stk', 
-                  payerPhone 
-              })
-              const paymentId = res.data?.data?.paymentId
-              const checkoutRequestId = res.data?.data?.daraja?.checkoutRequestId
-              
-              const params = new URLSearchParams({
-                  method: 'mpesa',
-                  paymentId,
-                  orderId: targetOrderId,
-                  provider: 'mpesa',
-                  checkoutRequestId: checkoutRequestId || '',
-                  invoiceId: targetInvoiceId,
-                  payerPhone: payerPhone
-              })
-              navigate(`/payment-status?${params.toString()}`)
-              toast.success('STK push sent. Complete on your phone.')
-          } else if (paymentMethod === 'paystack_card') {
-              if (!payerEmail) return toast.error('Email required')
-              const res = await paymentAPI.payInvoice({ 
-                  invoiceId: targetInvoiceId, 
-                  method: 'paystack_card', 
-                  payerEmail 
-              })
-              const paymentId = res.data?.data?.paymentId
-              const reference = res.data?.data?.reference
-              
-              const params = new URLSearchParams({
-                  method: 'paystack',
-                  paymentId,
-                  orderId: targetOrderId,
-                  provider: 'paystack',
-                  reference: reference || '',
-                  invoiceId: targetInvoiceId,
-                  payerEmail: payerEmail
-              })
-              navigate(`/payment-status?${params.toString()}`)
-              
-              const url = res.data?.data?.authorizationUrl
-              if (url) window.open(url, '_blank')
-          }
-      } catch (e) {
-          toast.error(e?.response?.data?.message || 'Failed to initiate payment')
-      } finally {
-          setPaying(false)
-      }
+    // ...
+    const res = await payInvoice.mutateAsync({ invoiceId, method, ... })
+    // Navigate to /payment-status with params
   }
   ```
 
-- **`handleCompleteOrder`** — Handles order completion and payment initiation.
+- **`handleCompleteOrder`** — Orchestrates order creation and payment based on selected mode.
   ```javascript
   const handleCompleteOrder = async () => {
-      // Handle Cash and Post-to-Bill
-      if (paymentMode === 'post_to_bill' || (paymentMode === 'pay_now' && paymentMethod === 'cash')) {
-          try {
-              setCreating(true)
-              const payload = { /* ... order payload ... */ }
-              
-              // Save checkout data to localStorage for retry
-              localStorage.setItem('checkoutData', JSON.stringify({
-                  payload,
-                  method: paymentMode === 'post_to_bill' ? 'post_to_bill' : 'cash'
-              }))
-              
-              const res = await orderAPI.createOrder(payload)
-              const createdOrderId = res.data?.data?.orderId
-              const orderDetail = await orderAPI.getOrderById(createdOrderId)
-              const inv = orderDetail.data?.data?.order?.invoiceId
-              const createdInvoiceId = inv?._id || inv
-              
-              // Refresh cart and clear coupon
-              const cartRes = await cartAPI.getCart()
-              setCart(cartRes.data?.data)
-              localStorage.removeItem('appliedCoupon')
-              
-              // Navigate to payment status
-              const method = paymentMode === 'post_to_bill' ? 'post_to_bill' : 'cash'
-              const params = new URLSearchParams({
-                  method: method,
-                  orderId: createdOrderId,
-                  invoiceId: createdInvoiceId
-              })
-              navigate(`/payment-status?${params.toString()}`)
-          } catch (error) {
-              const params = new URLSearchParams({
-                  method: paymentMode === 'post_to_bill' ? 'post_to_bill' : 'cash',
-                  error: error?.response?.data?.message || 'Failed to create order'
-              })
-              navigate(`/payment-status?${params.toString()}`)
-          } finally {
-              setCreating(false)
-          }
-          return
-      }
-      
-      // Handle M-Pesa and Paystack
-      if (paymentMode === 'pay_now' && (paymentMethod === 'mpesa_stk' || paymentMethod === 'paystack_card')) {
-          let ensuredOrderId = orderId
-          let ensuredInvoiceId = invoiceId
-          
-          if (!ensuredOrderId || !ensuredInvoiceId) {
-              const created = await createOrder()
-              ensuredOrderId = created?.orderId
-              ensuredInvoiceId = created?.invoiceId
-          }
-          
-          await payInvoiceNow(ensuredInvoiceId, ensuredOrderId)
-      }
+    if (paymentMode === 'post_to_bill' || paymentMethod === 'cash') {
+      // Create order and navigate
+      const res = await createOrderMutation.mutateAsync(payload)
+      navigate(`/payment-status?orderId=${res.orderId}&invoiceId=${res.invoiceId}...`)
+    } else {
+      // Create order then pay
+      const created = await createOrder()
+      await payInvoiceNow(created.invoiceId, created.orderId)
+    }
   }
-  ```
-
-- **Cart loading effect** — Loads cart on mount.
-  ```javascript
-  useEffect(() => {
-      const load = async () => {
-          try {
-              const res = await cartAPI.getCart()
-              setCart(res.data?.data)
-              const items = res.data?.data?.items || []
-              if (!items || items.length === 0) {
-                  localStorage.removeItem('appliedCoupon')
-                  setCoupon(null)
-              }
-          } catch {
-              toast.error('Failed to load cart')
-          } finally {
-              setLoading(false)
-          }
-      }
-      load()
-  }, [])
   ```
 
 - **Cart protection effect** — Redirects to cart if empty.
