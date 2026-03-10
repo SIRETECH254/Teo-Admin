@@ -274,8 +274,8 @@ const PaymentStatus = () => {
   const statusDisplay = getStatusDisplay();
 
   return (
-    <div className="min-h-screen bg-light  p-4">
-      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-xl py-8 px-4 text-center border border-gray-100">
+    <div className="min-h-screen bg-light  p-4 flex items-center justify-center w-full">
+      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-xl py-8 px-4 text-center border border-gray-100 w-full">
         
         {/* Status Section */}
         <div className="flex flex-col items-center mb-8">
