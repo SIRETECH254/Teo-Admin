@@ -354,6 +354,7 @@ const Checkout = () => {
       }
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to initiate payment')
+      throw e // Re-throw to handle in handleCompleteOrder
     } finally {
       setPaying(false)
     }
@@ -427,19 +428,27 @@ const Checkout = () => {
 
     // Handle M-Pesa and Paystack (order creation first, then payment initiation)
     if (paymentMode === 'pay_now' && (paymentMethod === 'mpesa_stk' || paymentMethod === 'paystack_card')) {
-    let ensuredOrderId = orderId
-    let ensuredInvoiceId = invoiceId
+      let ensuredOrderId = orderId
+      let ensuredInvoiceId = invoiceId
 
-    if (!ensuredOrderId || !ensuredInvoiceId) {
-      const created = await createOrder()
-      ensuredOrderId = created?.orderId
-      ensuredInvoiceId = created?.invoiceId
-    }
+      try {
+        if (!ensuredOrderId || !ensuredInvoiceId) {
+          const created = await createOrder()
+          ensuredOrderId = created?.orderId
+          ensuredInvoiceId = created?.invoiceId
+        }
 
-    console.log('✅ handleCompleteOrder - Order IDs:', { ensuredOrderId, ensuredInvoiceId })
+        console.log('✅ handleCompleteOrder - Order IDs:', { ensuredOrderId, ensuredInvoiceId })
 
-      // Initiate payment
+        // Initiate payment
         await payInvoiceNow(ensuredInvoiceId, ensuredOrderId)
+      } catch (error) {
+        console.error('Checkout failed:', error)
+        // If order was created but payment failed, go to order details page
+        if (ensuredOrderId) {
+          navigate(`/orders/${ensuredOrderId}`)
+        }
+      }
     }
   }
 

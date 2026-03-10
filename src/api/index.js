@@ -354,9 +354,6 @@ export const paymentAPI = {
     // Mark cash as collected
     markCashCollected: (paymentId, amount) => api.patch(`api/payments/${paymentId}/cash`, { amount }),
 
-    // Get M-Pesa payment status
-    getMpesaStatus: (paymentId) => api.get(`api/payments/${paymentId}/mpesa-status`),
-
     // Query M-Pesa status by checkout request ID
     queryMpesaByCheckoutId: (checkoutRequestId) => api.get(`api/payments/mpesa-status/${checkoutRequestId}`),
     

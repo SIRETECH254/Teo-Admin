@@ -30,15 +30,16 @@ export const useGetPaymentById = (paymentId) => {
 }
 
 // Query M-Pesa status by checkout request ID
-export const useQueryMpesaByCheckoutId = (checkoutRequestId) => {
+export const useQueryMpesaByCheckoutId = (checkoutRequestId, options = {}) => {
     return useQuery({
         queryKey: ['mpesa-status', checkoutRequestId],
         queryFn: async () => {
             const res = await paymentAPI.queryMpesaByCheckoutId(checkoutRequestId)
             return res.data?.data || {}
         },
-        enabled: !!checkoutRequestId,
+        enabled: !!checkoutRequestId && (options.enabled !== undefined ? options.enabled : true),
         staleTime: 10 * 1000, // 10 seconds
         retry: false,
+        ...options
     })
 }

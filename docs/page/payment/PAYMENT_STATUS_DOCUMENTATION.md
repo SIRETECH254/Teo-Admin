@@ -1,4 +1,4 @@
-# Payment Status Screen Documentation (Mobile)
+# Payment Status Screen Documentation (Web)
 
 ## Table of Contents
 - [Imports](#imports)
@@ -17,240 +17,167 @@
 ## Imports
 ```tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { View, Text, TouchableOpacity, ActivityIndicator, SafeAreaView, ScrollView } from 'react-native';
-import io, { Socket } from 'socket.io-client';
-import { useGetPaymentById, useQueryMpesaStatus } from '@/tanstack/usePayments';
-import { API_BASE_URL } from '@/api/config';
-import { formatPaymentStatus, getPaymentStatusVariant, formatCurrency } from '@/utils/paymentUtils';
-import { formatDateTimeWithTime } from '@/utils/notificationUtils';
-import type { IPayment } from '@/types/api.types';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { io } from 'socket.io-client';
+import toast from 'react-hot-toast';
+import { FiCheckCircle, FiXCircle, FiLoader, FiArrowLeft, FiPackage } from 'react-icons/fi';
+import { useGetPaymentById, useQueryMpesaByCheckoutId, usePayInvoice } from '../hooks/usePayments';
+import { useGetOrderById } from '../hooks/useOrders';
 ```
 
 ## Context and State Management
-- **Route Params:** `useLocalSearchParams()` extracts `paymentId` and `checkoutId` from URL.
+- **Route Params:** `useSearchParams()` extracts `paymentId`, `checkoutRequestId`, `orderId`, and `method` from the URL.
 - **TanStack Query:** 
-  - `useGetPaymentById(paymentId)` fetches payment data.
-  - `useQueryMpesaStatus(checkoutId)` queries M-Pesa status as fallback (enabled: false, manually triggered).
+  - `useGetPaymentById(paymentId)` fetches existing payment record.
+  - `useGetOrderById(orderId)` fetches order details for the summary.
+  - `useQueryMpesaByCheckoutId(checkoutId)` manual refetch for M-Pesa status fallback.
+  - `usePayInvoice()` mutation for retrying failed payments.
 - **Socket.IO:**
-  - `socketRef` - Socket.IO connection reference.
-  - `socketConnected` - Socket connection status.
+  - `socketRef` - Persistent reference for the WebSocket connection.
+  - `socketConnected` - Tracks real-time connection health.
 - **Local State:**
-  - `socketStatus` - Payment status from Socket.IO events.
-  - `isFallbackActive` - Fallback query active state.
-  - `timeoutRef` - Reference to fallback timeout (60 seconds).
-  - `socketError` - Connection or result error message.
+  - `socketStatus` - Real-time status updates from WebSocket events.
+  - `isFallbackActive` - Indicates if the 60s fallback timer has triggered.
+  - `socketError` - Stores specific failure messages (e.g., "Insufficient Funds").
 
 ## UI Structure
-- **Main Container:** Centered layout for focus on status.
-- **Status Indicator:** Large animated spinner or success/error icon.
-- **Details Card:** Summary of the payment being tracked.
-- **Connection Status:** Subtle indicators for real-time connection.
-- **Action Footer:** "View Appointment" or "Retry" buttons.
+- **Main Container:** Centered card layout using `container-xs` and `bg-white`.
+- **Status Indicator:** Large animated icons (`FiCheckCircle`, `FiXCircle`, `FiLoader`) indicating success, failure, or processing.
+- **Details Card:** `Order Summary` section showing Order ID, Total, and Method.
+- **Connection Status:** Small indicator dots showing "Live Connection Active".
+- **Action Footer:** Dynamic buttons for "View My Orders", "Retry Payment", or "Back to Cart".
 
 ## Planned Layout
 ```
 ┌────────────────────────────────────────────┐
-│ < Back        Payment Status               │
+│              PAYMENT STATUS                │
 ├────────────────────────────────────────────┤
 │                                            │
-│             [ LARGE SPINNER ]              │
-│           Waiting for Payment...           │
+│              [ LARGE ICON ]                │
+│          Waiting for M-Pesa...             │
 │                                            │
 ├────────────────────────────────────────────┤
-│ Payment #: PAY-2026-0029                   │
-│ Amount: KES 500.00                         │
-│ Method: M-Pesa                             │
+│ ┌────────────────────────────────────────┐ │
+│ │ Order Summary:                         │ │
+│ │ • Order ID: #ABC12345                  │ │
+│ │ • Total: KSh 1,500.00                  │ │
+│ │ • Method: MPESA                        │ │
+│ └────────────────────────────────────────┘ │
 ├────────────────────────────────────────────┤
-│ Connection: [Connected]                    │
-│ Fallback: [Inactive]                       │
+│ Connection: ● Live Connection Active       │
 ├────────────────────────────────────────────┤
-│ [ View Details ]                           │
+│ [     RETRY PAYMENT / VIEW ORDERS    ]     │
+│             ← Back to Home                 │
 └────────────────────────────────────────────┘
 ```
 
 ## Sketch Wireframe
 ```
 ┌────────────────────────────────────────────────────────────┐
-│ [←] Payment Status                                         │
 │                                                            │
 │                    [ 🔄 Processing ]                       │
 │               Waiting for M-Pesa Prompt...                 │
 │                                                            │
 │ ┌────────────────────────────────────────────────────────┐ │
-│ │ Payment Summary:                                       │ │
-│ │ • Payment #: PAY-2026-0029                             │ │
-│ │ • Total: KES 500.00                                    │ │
-│ │ • Date: Feb 16, 2026, 02:24 PM                         │ │
+│ │ Order Summary:                                         │ │
+│ │ • Order ID: #TEO-9981                                  │ │
+│ │ • Total: KSh 500.00                                    │ │
+│ │ • Method: M-Pesa                                       │ │
 │ └────────────────────────────────────────────────────────┘ │
 │                                                            │
 │ Real-time Connection: ● Active                             │
 │                                                            │
-│ [ View Payment Details ]                                   │
-│ [ Back to Home ]                                           │
+│ [ View My Orders ]                                         │
+│ ← Return to Previous Page                                  │
 └────────────────────────────────────────────────────────────┘
 ```
 
 ## Socket.IO Integration
 
 ### Connection Setup
-- Connect to `API_BASE_URL` using `socket.io-client`.
-- Subscribe to payment updates: `socket.emit('subscribe-to-payment', paymentId)`.
-- Listen to events: `callback.received`, `payment.updated`.
+- Connects to `VITE_API_BASE_URL` using `socket.io-client`.
+- Subscribes to specific payment updates: `socket.emit('subscribe-to-payment', paymentId)`.
+- Listeners for `callback.received` (Daraja callbacks) and `payment.updated` (General status).
 
-### M-Pesa Event Handling
-- **`callback.received`** event:
-  - Payload contains `code` and `message`.
-  - Result Code `0` → Set status to 'SUCCESS'.
-  - Other codes → Set status to 'FAILED'.
-- **`payment.updated`** event:
-  - Check if `payload.paymentId` matches.
-  - Update status from `payload.status`.
+### Event Handling
+- **`callback.received`**:
+  - Validates `paymentId` matches current tracking.
+  - Processes `CODE` 0 as success, other codes as specific failures.
+- **`payment.updated`**:
+  - Updates `socketStatus` based on server-side database changes.
+  - Triggers cleanup on final states (`SUCCESS`, `FAILED`, `PAID`).
 
 ### Fallback Query (M-Pesa Only)
-- After 60 seconds (FALLBACK_TIMEOUT), if no callback received:
-  - Set `isFallbackActive` to true.
-  - Call `useQueryMpesaStatus(checkoutId)` to query Safaricom API.
-  - Update status based on API result.
+- A `setTimeout` of 60 seconds is initialized on mount.
+- If no final status is received via WebSocket, `refetchMpesaStatus()` is called to query Safaricom's API directly.
 
 ## API Integration
-- **HTTP client:** `axios` instance from `api/config.ts` via `paymentAPI.getPayment` and `paymentAPI.queryMpesaStatus`.
-- **Get Endpoint:** `GET /api/payments/:paymentId` via `useGetPaymentById(paymentId)`.
-- **Headers:** Automatically includes `Authorization: Bearer <token>` from token store.
-- **Response contract:** `response.data.data.payment` contains the payment object with current status.
-- **Status Query Endpoint (Fallback):** `GET /api/payments/status/:checkoutId` via `useQueryMpesaStatus(checkoutId)`.
-- **Fallback Query:** Only triggered after 60 seconds if no Socket.IO callback received for M-Pesa payments.
-- **Fallback Response Structure:**
-  ```json
-  {
-    "success": true,
-    "data": {
-      "ResultCode": 0,
-      "ResultDesc": "The service request is processed successfully.",
-      "CheckoutRequestID": "ws_CO_..."
-    }
-  }
-  ```
-- **Socket.IO Events:**
-  - `subscribe-to-payment` - Emit to subscribe to payment updates
-  - `callback.received` - Listen for M-Pesa callback with `{ paymentId, CODE, message }`
-  - `payment.updated` - Listen for payment status updates with `{ paymentId, status }`
-- **Cache invalidation:** Payment query is automatically refetched when status changes via Socket.IO.
+- **TanStack Hooks:** Centralized in `src/hooks/usePayments.js` and `src/hooks/useOrders.js`.
+- **Endpoints Used:**
+  - `GET /api/payments/:paymentId`
+  - `GET /api/orders/:orderId`
+  - `GET /api/payments/status/:checkoutId`
+- **Headers:** Managed via the `axios` instance in `src/api/config.js`.
+- **Response Handling:** Maps backend statuses (`PENDING`, `SUCCESS`, `PAID`, `FAILED`, `CANCELLED`) to UI themes.
 
 ## Components Used
-- Expo Router: `useLocalSearchParams`, `useRouter`, `Stack`.
-- Socket.IO Client: `io`.
-- UI Components: `ActivityIndicator`, `View`, `Text`.
-- Icons: `MaterialIcons`.
+- **React Router:** `useNavigate`, `useSearchParams`.
+- **Icons:** `react-icons/fi` (Feather Icons).
+- **Notifications:** `react-hot-toast`.
+- **Socket:** `socket.io-client`.
 
 ## Error Handling
-- **Socket Disconnect:** Automatically attempts reconnection.
-- **Timeout:** Triggers the manual fallback query after 1 minute.
-- **Result Error:** Displays the M-Pesa error message (e.g., "Insufficient Funds").
+- **User Cancellation:** Specifically handles Daraja code `1032`.
+- **Insufficient Funds:** Handles Daraja code `1`.
+- **Connection Failure:** WebSocket includes `reconnectionAttempts` logic.
+- **Retry Logic:** `handleRetry` allows re-triggering the payment mutation without leaving the page.
 
 ## Navigation Flow
-- Route: `/(authenticated)/payments/status?paymentId=...&checkoutId=...`.
-- **Success:** Automatically navigate to payment details or show success with a button.
-- **Back Button:** Returns to the previous screen (with confirmation if pending).
+- **Success:** Redirects to `/orders`.
+- **Failure:** Stays on page with `Retry` option, or redirects to `/cart`.
+- **Manual Back:** Uses `navigate(-1)` for standard browser back behavior.
 
 ## Functions Involved
 
-- **`startTracking`** — Initializes websocket connection and event listeners for real-time payment tracking.
+- **`startTracking`** — Initializes websocket and fallback timers.
   ```tsx
-  const startTracking = useCallback((trackingPaymentId: string, trackingMethod: string) => {
+  const startTracking = useCallback((trackingPaymentId, trackingMethod) => {
     clearPaymentTimers();
-
-    // Initialize Socket connection
-    socketRef.current = io(API_BASE_URL, {
-      transports: ['websocket'],
-      forceNew: true,
-      timeout: 20000,
-      reconnection: true,
-      reconnectionAttempts: 5,
-    });
-
-    socketRef.current.on('connect', () => {
-      setSocketConnected(true);
-      socketRef.current?.emit('subscribe-to-payment', trackingPaymentId);
-    });
-
-    socketRef.current.on('callback.received', (payload: any) => {
-      if (payload.paymentId === trackingPaymentId) {
+    // ... Socket Initialization ...
+    socketRef.current.on('callback.received', (payload) => {
+      if (String(payload.paymentId) === String(trackingPaymentId)) {
         handleMpesaResultCode(payload.CODE, payload.message);
       }
     });
-
-    socketRef.current.on('payment.updated', (payload: any) => {
-      if (payload.paymentId === trackingPaymentId) {
-        setSocketStatus(payload.status);
-        if (payload.status === 'SUCCESS' || payload.status === 'FAILED') {
-          clearPaymentTimers();
-        }
-      }
-    });
-
-    // Fallback timeout for M-Pesa (60 seconds)
-    if (trackingMethod === 'MPESA' && checkoutId) {
-      timeoutRef.current = setTimeout(() => {
-        setIsFallbackActive(true);
-        refetchMpesaStatus();
-      }, FALLBACK_TIMEOUT);
-    }
+    // ... Fallback Timer ...
   }, [clearPaymentTimers, handleMpesaResultCode, checkoutId, refetchMpesaStatus]);
   ```
 
-- **`handleMpesaResultCode`** — Maps Daraja result codes to UI states and handles errors.
+- **`handleMpesaResultCode`** — Centralized logic for mapping API codes to UI states.
   ```tsx
-  const handleMpesaResultCode = useCallback((resultCode: number | string, resultMessage: string) => {
+  const handleMpesaResultCode = useCallback((resultCode, resultMessage) => {
     clearPaymentTimers();
-    // Ensure we handle string codes from API (e.g., "0")
-    const code = typeof resultCode === 'string' ? parseInt(resultCode, 10) : resultCode;
-
-    if (code === 0) {
-      setSocketStatus('SUCCESS');
-    } else if (code === 1032) {
-      setSocketStatus('CANCELLED');
-      setSocketError('Payment cancelled by user');
-    } else if (code === 1) {
-      setSocketStatus('FAILED');
-      setSocketError('Insufficient balance');
-    } else {
-      setSocketStatus('FAILED');
-      setSocketError(resultMessage || `Transaction failed (Code: ${code})`);
-    }
+    const code = parseInt(resultCode, 10);
+    if (code === 0) setSocketStatus('SUCCESS');
+    else if (code === 1032) setSocketStatus('CANCELLED');
+    // ... other codes ...
   }, [clearPaymentTimers]);
   ```
 
-- **`clearPaymentTimers`** — Cleanup function for sockets and timeouts on unmount or status change.
+- **`clearPaymentTimers`** — Disconnects socket and clears the fallback timeout.
   ```tsx
   const clearPaymentTimers = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-      socketRef.current = null;
-    }
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (socketRef.current) socketRef.current.disconnect();
   }, []);
   ```
 
-- **Cleanup effect** — Ensures socket and timers are cleaned up on component unmount.
-  ```tsx
-  useEffect(() => {
-    return () => {
-      clearPaymentTimers();
-    };
-  }, [clearPaymentTimers]);
-  ```
-
 ## Implementation Details
-- **WebSocket Fallback:** Ensure `socketRef.current` is cleaned up on unmount.
-- **Native Stability:** Use `transports: ['websocket']` for better compatibility in Expo.
-- **Domain Alignment:** Match `IPayment` status values (`PENDING`, `SUCCESS`, `FAILED`).
+- **Tailwind Classes:** Uses project-standard classes like `title2`, `btn-primary`, `container-xs`.
+- **Vite Env:** Accesses `import.meta.env.VITE_API_BASE_URL` for dynamic environment support.
+- **Effect Cleanup:** Ensures no memory leaks by calling `clearPaymentTimers` on unmount.
 
 ## Future Enhancements
-- Visual progress bar.
-- Haptic feedback on status change.
-- Push notification fallback if app is closed.
+- Visual progress timeline.
+- Receipt download button on success.
+- Audio notification for successful payment.
