@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
-import { FiCheckCircle, FiXCircle, FiLoader, FiArrowLeft, FiPackage } from 'react-icons/fi';
+import { FiCheckCircle, FiXCircle, FiLoader, FiArrowLeft, FiPackage, FiUser, FiCreditCard } from 'react-icons/fi';
 import { useGetPaymentById, useQueryMpesaByCheckoutId, usePayInvoice } from '../hooks/usePayments';
 import { useGetOrderById } from '../hooks/useOrders';
 
@@ -274,8 +274,8 @@ const PaymentStatus = () => {
   const statusDisplay = getStatusDisplay();
 
   return (
-    <div className="min-h-screen bg-light flex flex-col items-center justify-center p-4">
-      <div className="container-xs bg-white rounded-3xl shadow-xl p-8 text-center border border-gray-100">
+    <div className="min-h-screen bg-light  p-4">
+      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-xl py-8 px-4 text-center border border-gray-100">
         
         {/* Status Section */}
         <div className="flex flex-col items-center mb-8">
@@ -290,28 +290,125 @@ const PaymentStatus = () => {
           </p>
         </div>
 
-        {/* Payment Details Card */}
+        {/* Payment Details Section */}
         {orderData && (
-          <div className="bg-gray-50 rounded-2xl p-6 mb-8 text-left border border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <FiPackage /> Order Summary
-            </h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Order ID</span>
-                <span className="font-medium text-gray-900">#{orderId?.slice(-8).toUpperCase()}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Total Amount</span>
-                <span className="text-xl font-bold text-primary">KSh {orderData.pricing?.total?.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600">Payment Method</span>
-                <span className="font-medium px-3 py-1 bg-primary/10 text-primary rounded-full text-xs">
-                  {method}
-                </span>
+          <div className="space-y-6 mb-8 text-left">
+            {/* Order Items Section */}
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <FiPackage className="text-primary" /> Items Purchased
+              </h3>
+              <div className="space-y-4 max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200">
+                {(orderData.items || []).map((it, idx) => {
+                  const productImage = it?.productId?.primaryImage || it?.productId?.images?.find(img => img?.isPrimary)?.url || it?.productId?.images?.[0]?.url;
+                  const variantEntries = (() => {
+                    if (!it?.variantOptions) return [];
+                    return Object.entries(it.variantOptions || {});
+                  })();
+                  const variantText = variantEntries.length > 0 ? variantEntries.map(([k, v]) => `${k}: ${v}`).join(', ') : null;
+
+                  return (
+                    <div key={idx} className="flex items-start gap-4 p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
+                      <div className="h-14 w-14 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {productImage ? (
+                          <img src={productImage} alt={it.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <FiPackage className="h-6 w-6 text-gray-300" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 flex flex-col items-start sm:flex-row sm:justify-between gap-2">
+
+                        <div className="">
+                          <h4 className="font-semibold text-gray-900 text-sm truncate">{it.title}</h4>
+                          {variantText && (
+                            <p className="text-gray-500 text-xs truncate">{variantText}</p>
+                          )}
+                          <p className="text-primary font-bold text-xs mt-1">
+                            Qty: {it.quantity} × KSh {(it.unitPrice || 0).toLocaleString()}
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="font-bold text-gray-900 text-sm">
+                            KSh {((it.unitPrice || 0) * it.quantity).toLocaleString()}
+                          </p>
+                        </div>
+
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
+
+            {/* Price Breakdown Section */}
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <FiCreditCard className="text-primary" /> Payment Breakdown
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-600">Subtotal</span>
+                  <span className="font-medium text-gray-900">KSh {orderData.pricing?.subtotal?.toLocaleString()}</span>
+                </div>
+                {(orderData.pricing?.discounts || 0) > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-green-600">Discounts</span>
+                    <span className="font-medium text-green-600">- KSh {orderData.pricing?.discounts?.toLocaleString()}</span>
+                  </div>
+                )}
+                {(orderData.pricing?.deliveryFee || 0) > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Delivery Fee</span>
+                    <span className="font-medium text-gray-900">KSh {orderData.pricing?.deliveryFee?.toLocaleString()}</span>
+                  </div>
+                )}
+                {(orderData.pricing?.packagingFee || 0) > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Packaging Fee</span>
+                    <span className="font-medium text-gray-900">KSh {orderData.pricing?.packagingFee?.toLocaleString()}</span>
+                  </div>
+                )}
+                {(orderData.pricing?.tax || 0) > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Tax</span>
+                    <span className="font-medium text-gray-900">KSh {orderData.pricing?.tax?.toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="pt-3 border-t border-gray-200 mt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-gray-900">Total Paid</span>
+                    <span className="text-xl font-black text-primary">KSh {orderData.pricing?.total?.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Order Metadata Section */}
+            <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10">
+              <div className="grid grid-cols-2 gap-y-4 gap-x-6">
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Order Ref</p>
+                  <p className="text-sm font-bold text-gray-900">#{orderId?.slice(-8).toUpperCase()}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Payment Method</p>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary text-white">
+                    {method}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Fulfillment</p>
+                  <p className="text-xs font-semibold text-gray-700 capitalize">{orderData.type || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Location</p>
+                  <p className="text-xs font-semibold text-gray-700">{orderData.location === 'in_shop' ? 'In Shop' : 'Away'}</p>
+                </div>
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -348,29 +445,21 @@ const PaymentStatus = () => {
                 {(isRetrying || payInvoice.isPending) ? <FiLoader className="animate-spin" /> : 'Retry Payment'}
               </button>
               <button 
-                onClick={() => navigate('/cart')} 
+                onClick={() => navigate(`/orders/${orderId}`)} 
                 className="btn-outline w-full py-4"
               >
-                Back to Cart
+                View Order Details
               </button>
             </>
           ) : (
             <button 
-              onClick={() => navigate('/orders')} 
+              onClick={() => navigate(`/orders/${orderId}`)} 
               className="btn-secondary w-full py-4"
             >
-              Go to Orders
+              View Order Details
             </button>
           )}
         </div>
-
-        {/* Back Link */}
-        <button 
-          onClick={() => navigate(-1)}
-          className="mt-8 flex items-center justify-center gap-2 text-gray-400 hover:text-primary transition-colors text-sm font-medium mx-auto"
-        >
-          <FiArrowLeft /> Return to Previous Page
-        </button>
 
       </div>
     </div>
