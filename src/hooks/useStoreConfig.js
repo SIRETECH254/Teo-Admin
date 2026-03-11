@@ -1,12 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { storeConfigAPI } from '../utils/api'
+import { storeConfigAPI } from '../api'
 import toast from 'react-hot-toast'
 
 // Get store configuration
 export const useGetStoreConfig = () => {
     return useQuery({
         queryKey: ['storeConfig'],
-        queryFn: () => storeConfigAPI.getStoreConfig(),
+        queryFn: async () => {
+            const response = await storeConfigAPI.getStoreConfig()
+            // Backend returns: { success: true, data: { config: {...} } }
+            // Return the inner data object for easier access
+            return response.data?.data || response.data
+        },
         staleTime: 5 * 60 * 1000, // 5 minutes
         gcTime: 10 * 60 * 1000, // 10 minutes
     })
@@ -16,7 +21,12 @@ export const useGetStoreConfig = () => {
 export const useGetStoreConfigStatus = () => {
     return useQuery({
         queryKey: ['storeConfig', 'status'],
-        queryFn: () => storeConfigAPI.getStoreConfigStatus(),
+        queryFn: async () => {
+            const response = await storeConfigAPI.getStoreConfigStatus()
+            // Backend returns: { success: true, data: { exists: boolean, config: {...} } }
+            // Return the inner data object for easier access
+            return response.data?.data || response.data
+        },
         staleTime: 1 * 60 * 1000, // 1 minute
         gcTime: 5 * 60 * 1000, // 5 minutes
     })
@@ -27,10 +37,15 @@ export const useCreateStoreConfig = () => {
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: (configData) => storeConfigAPI.createStoreConfig(configData),
+        mutationFn: async (configData) => {
+            const response = await storeConfigAPI.createStoreConfig(configData)
+            // Backend returns: { success: true, message: "...", data: { config: {...} } }
+            return response.data
+        },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['storeConfig'] })
-            toast.success(data.data?.message || 'Store configuration created successfully')
+            toast.success(data?.message || 'Store configuration created successfully')
+            return data
         },
         onError: (error) => {
             console.error('Create store config error:', error)
@@ -44,31 +59,19 @@ export const useUpdateStoreConfig = () => {
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: (configData) => storeConfigAPI.updateStoreConfig(configData),
+        mutationFn: async (configData) => {
+            const response = await storeConfigAPI.updateStoreConfig(configData)
+            // Backend returns: { success: true, message: "...", data: { config: {...} } }
+            return response.data
+        },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['storeConfig'] })
-            toast.success(data.data?.message || 'Store configuration updated successfully')
+            toast.success(data?.message || 'Store configuration updated successfully')
+            return data
         },
         onError: (error) => {
             console.error('Update store config error:', error)
             toast.error(error.response?.data?.message || 'Failed to update store configuration')
-        }
-    })
-}
-
-// Delete store configuration
-export const useDeleteStoreConfig = () => {
-    const queryClient = useQueryClient()
-
-    return useMutation({
-        mutationFn: () => storeConfigAPI.deleteStoreConfig(),
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['storeConfig'] })
-            toast.success(data.data?.message || 'Store configuration deleted successfully')
-        },
-        onError: (error) => {
-            console.error('Delete store config error:', error)
-            toast.error(error.response?.data?.message || 'Failed to delete store configuration')
         }
     })
 }
@@ -78,10 +81,15 @@ export const useInitStoreConfig = () => {
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: () => storeConfigAPI.initStoreConfig(),
+        mutationFn: async () => {
+            const response = await storeConfigAPI.initStoreConfig()
+            // Backend returns: { success: true, message: "...", data: { config: {...} } }
+            return response.data
+        },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['storeConfig'] })
-            toast.success(data.data?.message || 'Default store configuration initialized successfully')
+            toast.success(data?.message || 'Default store configuration initialized successfully')
+            return data
         },
         onError: (error) => {
             console.error('Init store config error:', error)

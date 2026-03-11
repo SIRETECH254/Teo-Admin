@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { FiSearch } from 'react-icons/fi'
-import api from '../../utils/api'
+import api from '../../api'
 
 
-const AddressAutocomplete = ({ userId, onSaved }) => {
+const AddressAutocomplete = ({ onSaved }) => {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
@@ -18,7 +18,7 @@ const AddressAutocomplete = ({ userId, onSaved }) => {
       )
       const data = await res.json()
       setResults(Array.isArray(data) ? data : [])
-    } catch (e) {
+    } catch {
       // ignore
     } finally {
       setLoading(false)
@@ -54,7 +54,7 @@ const AddressAutocomplete = ({ userId, onSaved }) => {
       setQuery('')
       setResults([])
       if (onSaved) onSaved(created)
-    } catch (e) {
+    } catch {
       // Keep silent fail-safe; parent handles toasts on onSaved success
       // Optionally, you could add error handling here if desired
       // console.error('Failed to save address from autocomplete:', e)

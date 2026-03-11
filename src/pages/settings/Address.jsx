@@ -1,100 +1,58 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import { FiMapPin, FiPlus, FiEdit, FiTrash2, FiArrowLeft, FiHome, FiBriefcase, FiStar, FiX, FiAlertTriangle } from 'react-icons/fi'
-import toast from 'react-hot-toast'
 import AddressAutocomplete from '../../components/common/AddressAutocomplete'
-import api from '../../utils/api'
+import { useGetAddresses, useCreateAddress, useUpdateAddress, useDeleteAddress, useSetDefaultAddress } from '../../hooks/useAddresses'
+import toast from 'react-hot-toast'
 
 const Address = () => {
   const navigate = useNavigate()
-  const [addresses, setAddresses] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { data: addresses = [], isLoading, isError, error } = useGetAddresses()
+  const createAddress = useCreateAddress()
+  const updateAddress = useUpdateAddress()
+  const deleteAddress = useDeleteAddress()
+  const setDefaultAddress = useSetDefaultAddress()
+  
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingAddress, setEditingAddress] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState({ open: false, address: null })
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  useEffect(() => {
-    const fetchAddresses = async () => {
-      try {
-        const res = await api.get('/addresses')
-        const list = res?.data?.data?.addresses || res?.data || []
-        setAddresses(list)
-      } catch (error) {
-        toast.error('Failed to load addresses')
-        console.error('Error fetching addresses:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchAddresses()
-  }, [])
 
   const handleAddAddress = async (addressData) => {
     try {
-      const res = await api.post('/addresses', addressData)
-      const created = res?.data?.data?.address || res?.data
-      if (created) setAddresses(prev => [created, ...prev])
+      await createAddress.mutateAsync(addressData)
       setShowAddModal(false)
-      toast.success('Address added successfully!')
-      // Mirror AddProduct success: ensure we are on the addresses page
       navigate('/settings/address')
     } catch (error) {
-      toast.error('Failed to add address')
-      console.error('Error adding address:', error)
+      // Error handled by hook
     }
   }
 
   const handleUpdateAddress = async (id, addressData) => {
     try {
-      const res = await api.put(`/addresses/${id}`, addressData)
-      const updated = res?.data?.data?.address || res?.data
-      if (updated) {
-        setAddresses(prev => prev.map(addr => (String(addr._id || addr.id) === String(id) ? updated : addr)))
-      }
+      await updateAddress.mutateAsync({ id, addressData })
       setEditingAddress(null)
-      toast.success('Address updated successfully!')
     } catch (error) {
-      toast.error('Failed to update address')
-      console.error('Error updating address:', error)
-    }
-  }
-
-  const handleDeleteAddress = async (id) => {
-    try {
-      await api.delete(`/addresses/${id}`)
-      setAddresses(prev => prev.filter(addr => String(addr._id || addr.id) !== String(id)))
-      toast.success('Address deleted successfully!')
-    } catch (error) {
-      toast.error('Failed to delete address')
-      console.error('Error deleting address:', error)
+      // Error handled by hook
     }
   }
 
   const confirmDeleteAddress = async () => {
     if (!confirmDelete.address) return
-    setIsDeleting(true)
     try {
       const id = confirmDelete.address._id || confirmDelete.address.id
-      await handleDeleteAddress(id)
+      await deleteAddress.mutateAsync(id)
       setConfirmDelete({ open: false, address: null })
     } catch (error) {
-      // error handled in handleDeleteAddress
-    } finally {
-      setIsDeleting(false)
+      // Error handled by hook
     }
   }
 
   const handleSetDefault = async (id) => {
     try {
-      await api.put(`/addresses/${id}/default`)
-      setAddresses(prev => prev.map(addr => ({ ...addr, isDefault: String(addr._id || addr.id) === String(id) })))
-      toast.success('Default address updated!')
+      await setDefaultAddress.mutateAsync(id)
     } catch (error) {
-      toast.error('Failed to update default address')
-      console.error('Error setting default address:', error)
+      // Error handled by hook
     }
   }
 
@@ -120,16 +78,8 @@ const Address = () => {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="p-6 max-w-4xl mx-auto">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading addresses...</p>
-        </div>
-      </div>
-    )
-  }
+  // Error message extraction
+  const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load addresses.'
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -148,22 +98,96 @@ const Address = () => {
               <button
                 onClick={() => setConfirmDelete({ open: false, address: null })}
                 className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
-                disabled={isDeleting}
+                disabled={deleteAddress.isPending}
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDeleteAddress}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                disabled={isDeleting}
+                disabled={deleteAddress.isPending}
               >
-                {isDeleting ? 'Deleting...' : 'Delete'}
+                {deleteAddress.isPending ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Loading skeleton */}
+      {isLoading && (
+        <>
+          {/* Header skeleton */}
+          <div className="mb-8">
+            <div className="h-6 w-32 animate-pulse rounded bg-gray-300 mb-4" />
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="h-10 w-48 animate-pulse rounded bg-gray-300 mb-2" />
+                <div className="h-4 w-64 animate-pulse rounded bg-gray-300" />
+              </div>
+              <div className="h-10 w-32 animate-pulse rounded bg-gray-300" />
+            </div>
+          </div>
+
+          {/* Address cards skeleton */}
+          <div className="space-y-4">
+            {[...Array(3)].map((_, index) => (
+              <div
+                key={`skeleton-${index}`}
+                className="bg-white rounded-lg border border-gray-200 p-6"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-4 flex-1">
+                    {/* Icon skeleton */}
+                    <div className="h-12 w-12 animate-pulse rounded-lg bg-gray-300" />
+                    <div className="flex-1 min-w-0 space-y-3">
+                      {/* Title and badge skeleton */}
+                      <div className="flex items-center gap-2">
+                        <div className="h-6 w-32 animate-pulse rounded bg-gray-300" />
+                        <div className="h-5 w-16 animate-pulse rounded-full bg-gray-300" />
+                      </div>
+                      {/* Address lines skeleton */}
+                      <div className="space-y-2">
+                        <div className="h-4 w-full animate-pulse rounded bg-gray-300" />
+                        <div className="h-4 w-3/4 animate-pulse rounded bg-gray-300" />
+                        <div className="h-4 w-1/2 animate-pulse rounded bg-gray-300" />
+                      </div>
+                      {/* Small screen actions skeleton */}
+                      <div className="flex items-center gap-2 sm:hidden mt-2">
+                        <div className="h-6 w-24 animate-pulse rounded bg-gray-300" />
+                        <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                      </div>
+                    </div>
+                  </div>
+                  {/* Large screen actions skeleton */}
+                  <div className="hidden sm:flex items-center gap-2">
+                    <div className="h-6 w-24 animate-pulse rounded bg-gray-300" />
+                    <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Error state */}
+      {isError && !isLoading && (
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <div className="text-center">
+            <FiAlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Error loading addresses</h2>
+            <p className="text-gray-600 mb-6">{errorMessage}</p>
+            <Link to="/settings" className="btn-primary inline-block">
+              Back to Settings
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Data state */}
+      {!isLoading && !isError && (
+        <>
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-4">
@@ -299,17 +323,17 @@ const Address = () => {
             </div>
             <AddressAutocomplete
               onSaved={(resp) => {
-                // Try to read standard response shapes
-                const created = resp?.data?.data?.address || resp?.data || resp
-                if (created) setAddresses(prev => [created, ...prev])
+                // React Query will automatically refetch addresses after mutation
                 setShowAddModal(false)
                 toast.success('Address added successfully!')
-                // Mirror AddProduct success: navigate to list to view the new address
+                // Navigate to refresh the list (React Query will refetch)
                 navigate('/settings/address')
               }}
             />
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   )

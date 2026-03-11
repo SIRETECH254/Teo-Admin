@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { orderAPI } from '../../utils/api'
-import { FiSearch, FiX, FiFilter, FiList, FiAlertTriangle, FiEye, FiTrash2, FiTag } from 'react-icons/fi'
+import { FiSearch, FiX, FiFilter, FiList, FiAlertTriangle, FiEye, FiTrash2, FiTag, FiPackage } from 'react-icons/fi'
 import Pagination from '../../components/common/Pagination'
-import OrderStatusBadge from '../../components/common/OrderStatusBadge'
-import PaymentStatusBadge from '../../components/common/PaymentStatusBadge'
-import toast from 'react-hot-toast'
+import StatusBadge from '../../components/common/StatusBadge'
+import { useGetOrders, useDeleteOrder } from '../../hooks/useOrders'
 
 
 const Orders = () => {
@@ -21,9 +19,6 @@ const Orders = () => {
   const [itemsPerPage, setItemsPerPage] = useState(10)
   const [selectedOrders, setSelectedOrders] = useState([])
   const [confirmDelete, setConfirmDelete] = useState({ open: false, order: null })
-
-  const [isLoading, setIsLoading] = useState(false)
-  const [ordersData, setOrdersData] = useState({ orders: [], pagination: {} })
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchTerm), 300)
@@ -42,58 +37,42 @@ const Orders = () => {
     return p
   }, [filterStatus, filterPayment, filterType, filterLocation, debouncedSearch, currentPage, itemsPerPage])
 
-  const loadOrders = useCallback(async () => {
-    try {
-      setIsLoading(true)
-      const res = await orderAPI.getOrders(params)
-      const payload = res.data?.data || {}
-      setOrdersData({
-        orders: payload.orders || [],
-        pagination: payload.pagination || {}
-      })
-    } catch (e) {
-      toast.error('Failed to load orders')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [params])
+  const { data: ordersData, isLoading, isError, error } = useGetOrders(params)
+  
+  // Get error message from API response
+  const errorMessage = error?.response?.data?.message || 'Failed to load orders.'
+  const deleteOrder = useDeleteOrder()
 
-  useEffect(() => {
-    loadOrders()
-  }, [loadOrders])
-
-  const orders = ordersData.orders
-  const pagination = ordersData.pagination
+  const orders = ordersData?.orders || []
+  const pagination = ordersData?.pagination || {}
   const totalItems = pagination.totalItems || orders.length
   const totalPages = Math.max(1, pagination.totalPages || Math.ceil((totalItems || 0) / (itemsPerPage || 1)))
 
-  const handleSelectOrder = useCallback((orderId) => {
+  const handleSelectOrder = (orderId) => {
     setSelectedOrders(prev => prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId])
-  }, [])
+  }
 
-  const handleSelectAll = useCallback(() => {
+  const handleSelectAll = () => {
     setSelectedOrders(prev => (prev.length === orders.length ? [] : orders.map(o => o._id)))
-  }, [orders])
+  }
 
-  const handleDelete = useCallback((order) => {
+  const handleDelete = (order) => {
     setConfirmDelete({ open: true, order })
-  }, [])
+  }
 
-  const confirmDeleteOrder = useCallback(async () => {
+  const confirmDeleteOrder = async () => {
     try {
-      await orderAPI.deleteOrder(confirmDelete.order._id)
+      await deleteOrder.mutateAsync(confirmDelete.order._id)
       setConfirmDelete({ open: false, order: null })
-      loadOrders()
-      toast.success('Order deleted')
-    } catch (e) {
-      toast.error('Failed to delete order')
+    } catch (error) {
+      // Error handled by hook
     }
-  }, [confirmDelete.order, loadOrders])
+  }
 
-  const clearSearch = useCallback(() => { setSearchTerm(''); setCurrentPage(1) }, [])
-  const clearFilters = useCallback(() => {
+  const clearSearch = () => { setSearchTerm(''); setCurrentPage(1) }
+  const clearFilters = () => {
     setFilterStatus('all'); setFilterPayment('all'); setFilterType('all'); setFilterLocation('all'); setCurrentPage(1)
-  }, [])
+  }
 
   const goToDetails = (orderId) => navigate(`/orders/${orderId}`)
 
@@ -203,77 +182,159 @@ const Orders = () => {
         </div>
       </header>
 
-      <div className="bg-light rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        {isLoading ? (
-          <div className="p-6 text-sm text-gray-500">Loading orders...</div>
-        ) : orders.length === 0 ? (
-          <div className="py-16 px-6 text-center">
-            <div className="mx-auto h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">📦</div>
-            <h3 className="mt-4 text-lg font-semibold text-gray-900">No orders found</h3>
-            <p className="mt-1 text-sm text-gray-500">Orders will appear here once created.</p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-light">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <input type="checkbox" checked={selectedOrders.length === orders.length && orders.length > 0} onChange={handleSelectAll} className="rounded border-gray-300 text-primary focus:ring-primary" />
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {orders.map((order) => (
-                    <tr key={order._id} className="hover:bg-light">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input type="checkbox" checked={selectedOrders.includes(order._id)} onChange={() => handleSelectOrder(order._id)} className="rounded border-gray-300 text-primary focus:ring-primary" />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{order?.invoice?.number || order._id}</div>
-                        <div className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleString()}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{order?.customer?.name || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><OrderStatusBadge status={order.status} /></td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><PaymentStatusBadge status={order.paymentStatus} /></td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">KSh {order?.pricing?.total?.toFixed(2) || '0.00'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
-                          <button onClick={() => goToDetails(order._id)} className="text-blue-600 hover:text-blue-900" title="View order">
-                            <FiEye className="h-4 w-4" />
-                          </button>
-                          <button onClick={() => handleDelete(order)} className="text-red-600 hover:text-red-900" title="Delete order">
-                            <FiTrash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      {/* Orders Table */}
+      <div className="table-container">
+        <table className="table">
+          {/* Table header */}
+          <thead className="table-header">
+            <tr>
+              <th className="table-header-cell">
+                <input type="checkbox" checked={selectedOrders.length === orders.length && orders.length > 0} onChange={handleSelectAll} className="rounded border-gray-300 text-primary focus:ring-primary" />
+              </th>
+              <th className="table-header-cell">Invoice</th>
+              <th className="table-header-cell">Customer</th>
+              <th className="table-header-cell">Status</th>
+              <th className="table-header-cell">Payment</th>
+              <th className="table-header-cell">Total</th>
+              <th className="table-header-cell-right">Actions</th>
+            </tr>
+          </thead>
 
-            {totalPages > 1 && (
-              <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-                <Pagination
-                  currentPage={pagination.currentPage || currentPage}
-                  totalPages={totalPages}
-                  onPageChange={(p) => setCurrentPage(p)}
-                  totalItems={totalItems}
-                  pageSize={itemsPerPage}
-                  currentPageCount={orders.length}
-                />
-              </div>
+          {/* Table body */}
+          <tbody className="table-body">
+            {/* Loading state: skeleton rows */}
+            {isLoading && (
+              <>
+                {[...Array(5)].map((_, index) => (
+                  <tr key={`skeleton-${index}`}>
+                    <td className="table-cell">
+                      <div className="h-4 w-4 animate-pulse rounded bg-gray-300" />
+                    </td>
+                    <td className="table-cell">
+                      <div>
+                        <div className="h-4 w-32 animate-pulse rounded bg-gray-300 mb-1" />
+                        <div className="h-3 w-24 animate-pulse rounded bg-gray-300" />
+                      </div>
+                    </td>
+                    <td className="table-cell">
+                      <div className="h-4 w-24 animate-pulse rounded bg-gray-300" />
+                    </td>
+                    <td className="table-cell">
+                      <div className="h-6 w-16 animate-pulse rounded-full bg-gray-300" />
+                    </td>
+                    <td className="table-cell">
+                      <div className="h-6 w-16 animate-pulse rounded-full bg-gray-300" />
+                    </td>
+                    <td className="table-cell">
+                      <div className="h-4 w-20 animate-pulse rounded bg-gray-300" />
+                    </td>
+                    <td className="table-cell">
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                        <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </>
             )}
-          </>
-        )}
+
+            {/* Error state */}
+            {isError && !isLoading && (
+              <tr>
+                <td colSpan={7} className="table-cell-center py-12">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <FiAlertTriangle className="text-red-500" size={48} />
+                    <p className="text-sm font-medium text-gray-700">{errorMessage}</p>
+                  </div>
+                </td>
+              </tr>
+            )}
+
+            {/* Empty state */}
+            {!isLoading && !isError && orders.length === 0 && (
+              <tr>
+                <td colSpan={7} className="table-cell-center py-12">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <FiPackage className="text-gray-400" size={48} />
+                    <p className="text-sm font-medium text-gray-700">No orders found.</p>
+                    {debouncedSearch || filterStatus !== 'all' || filterPayment !== 'all' || filterType !== 'all' || filterLocation !== 'all' ? (
+                      <p className="mt-2 text-sm text-gray-400">
+                        Try adjusting your search or filters.
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-sm text-gray-400">
+                        Orders will appear here once created.
+                      </p>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            )}
+
+            {/* Order rows */}
+            {!isLoading &&
+              !isError &&
+              orders.map((order) => (
+                <tr key={order._id} className="table-row">
+                  <td className="table-cell">
+                    <input type="checkbox" checked={selectedOrders.includes(order._id)} onChange={() => handleSelectOrder(order._id)} className="rounded border-gray-300 text-primary focus:ring-primary" />
+                  </td>
+                  <td className="table-cell">
+                    <div className="whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{order?.invoice?.number || order._id}</div>
+                      <div className="text-xs text-gray-500">{new Date(order.createdAt).toLocaleString()}</div>
+                    </div>
+                  </td>
+                  <td className="table-cell-text">
+                    {order?.customer?.name || '-'}
+                  </td>
+                  <td className="table-cell">
+                    <StatusBadge status={order.status} type="order-status" />
+                  </td>
+                  <td className="table-cell">
+                    <StatusBadge status={order.paymentStatus} type="payment-status" />
+                  </td>
+                  <td className="table-cell-text">
+                    KSh {order?.pricing?.total?.toFixed(2) || '0.00'}
+                  </td>
+                  <td className="table-cell">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => goToDetails(order._id)}
+                        className="flex items-center justify-center rounded-lg bg-white p-2 text-blue-600 transition hover:bg-blue-50"
+                        title="View order"
+                      >
+                        <FiEye className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(order)}
+                        className="flex items-center justify-center rounded-lg bg-white p-2 text-red-600 transition hover:bg-red-50"
+                        title="Delete order"
+                      >
+                        <FiTrash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
       </div>
+
+      {/* Pagination - separate from table container */}
+      {!isLoading && !isError && totalPages > 1 && (
+        <div className="mt-4">
+          <Pagination
+            currentPage={pagination.currentPage || currentPage}
+            totalPages={totalPages}
+            onPageChange={(p) => setCurrentPage(p)}
+            totalItems={totalItems}
+            pageSize={itemsPerPage}
+            currentPageCount={orders.length}
+          />
+        </div>
+      )}
     </div>
   )
 }

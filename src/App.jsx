@@ -28,6 +28,7 @@ import EditCollection from './pages/classifications/collection/EditCollection'
 import Variants from './pages/variant/Variants'
 import AddVariant from './pages/variant/AddVariant'
 import EditVariant from './pages/variant/EditVariant'
+import VariantDetail from './pages/variant/VariantDetail'
 import Products from './pages/products/Products'
 import AddProduct from './pages/products/AddProduct'
 import EditProduct from './pages/products/EditProduct'
@@ -63,43 +64,44 @@ import Profile from './pages/settings/Profile'
 import Address from './pages/settings/Address'
 import ChangePassword from './pages/settings/ChangePassword'
 import StoreConfigurations from './pages/settings/StoreConfigurations'
+import EditStoreConfigurations from './pages/settings/EditStoreConfigurations'
 
-function App() {
-  // Main Layout - only for authenticated users (inside App component for AuthProvider context)
-  const Layout = () => {
-    const { isAuthenticated, isLoading } = useAuth()
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+// Main Layout - only for authenticated users (must be inside AuthProvider)
+const Layout = () => {
+  const { isAuthenticated, isLoading } = useAuth()
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
-    const toggleSidebar = () => {
-      setIsSidebarOpen(!isSidebarOpen)
-    }
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen)
+  }
 
-    if (isLoading) {
-      return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading...</p>
-          </div>
-        </div>
-      )
-    }
-
-    return isAuthenticated ? (
-      <div className="min-h-screen h-screen flex flex-col">
-        <Header toggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
-        <div className="flex-1 flex overflow-hidden">
-          <Sidebar isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-          <div className="flex-1 h-full overflow-y-auto relative">
-            <Outlet />
-          </div>
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
-    ) : (
-      <Navigate to="/login" replace />
     )
   }
 
+  return isAuthenticated ? (
+    <div className="min-h-screen h-screen flex flex-col">
+      <Header toggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+        <div className="flex-1 h-full overflow-y-auto relative">
+          <Outlet />
+        </div>
+      </div>
+    </div>
+  ) : (
+    <Navigate to="/login" replace />
+  )
+}
+
+function App() {
   return (
     <Router>
       <AuthProvider>
@@ -145,6 +147,7 @@ function App() {
               <Route path="/tags/:id/edit" element={<EditTag />} />
               <Route path="/variants" element={<Variants />} />
               <Route path="/variants/add" element={<AddVariant />} />
+              <Route path="/variants/:id" element={<VariantDetail />} />
               <Route path="/variants/:id/edit" element={<EditVariant />} />
 
               {/* Settings Routes */}
@@ -153,6 +156,7 @@ function App() {
               <Route path="/settings/address" element={<Address />} />
               <Route path="/settings/change-password" element={<ChangePassword />} />
               <Route path="/settings/store-configurations" element={<StoreConfigurations />} />
+              <Route path="/settings/store-configurations/edit" element={<EditStoreConfigurations />} />
             </Route>
 
             {/* Public Routes */}

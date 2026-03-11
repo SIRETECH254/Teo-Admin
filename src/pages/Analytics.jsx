@@ -13,9 +13,7 @@ const ranges = [
 
 const Analytics = () => {
     const [range, setRange] = useState('30d')
-    const { data, isLoading } = useAnalytics({ range })
-
-    const analytics = data?.data || {}
+    const { data: analytics, isLoading } = useAnalytics({ range })
 
     const ordersSeries = analytics.ordersSeries || []
     const revenueSeries = analytics.revenueSeries || []

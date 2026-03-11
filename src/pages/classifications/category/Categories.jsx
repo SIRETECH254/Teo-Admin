@@ -28,7 +28,7 @@ const Categories = () => {
     params.page = currentPage
     params.limit = itemsPerPage
 
-    const { data, isLoading } = useGetCategories(params)
+    const { data, isLoading, isError, error } = useGetCategories(params)
     const categories = data?.data?.data?.categories || []
     const pagination = data?.data?.data?.pagination || {}
     const totalItems = pagination.totalCategories || pagination.totalItems || 0
@@ -66,36 +66,8 @@ const Categories = () => {
         setCurrentPage(1)
     }
 
-    const LoadingSkeleton = () => (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" />
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Products</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <tr key={i}>
-                                <td className="px-6 py-4"><div className="h-4 w-4 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4"><div className="h-4 w-40 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4"><div className="h-4 w-24 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4"><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4 text-right"><div className="h-8 w-24 bg-gray-200 rounded animate-pulse ml-auto" /></td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-            </div>
-        )
+    // Get error message from API response
+    const errorMessage = error?.response?.data?.message || 'Failed to load categories.'
 
     return (
         <div className="p-4">
@@ -182,30 +154,13 @@ const Categories = () => {
             </header>
 
             {/* Categories Table */}
-            <div className="bg-light rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                {isLoading ? (
-                    <LoadingSkeleton />
-                ) : categories.length === 0 ? (
-                    <div className="py-16 px-6 text-center">
-                        <div className="mx-auto h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-                            <FiGrid className="h-7 w-7 text-primary" />
-                        </div>
-                        <h3 className="mt-4 text-lg font-semibold text-gray-900">No categories yet</h3>
-                        <p className="mt-1 text-sm text-gray-500">Get started by creating your first category.</p>
-                        <div className="mt-6">
-                            <Link to="/categories/add" className="btn-primary inline-flex items-center">
-                                <FiPlus className="mr-2 h-4 w-4" />
-                                Add Category
-                            </Link>
-                        </div>
-                    </div>
-                ) : (
-                <>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-light">
-                            <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            {/* Categories Table */}
+            <div className="table-container">
+                <table className="table">
+                    {/* Table header */}
+                    <thead className="table-header">
+                        <tr>
+                            <th className="table-header-cell">
                                             <input 
                                                 type="checkbox" 
                                                 checked={selectedCategories.length === categories.length && categories.length > 0}
@@ -213,24 +168,86 @@ const Categories = () => {
                                                 className="rounded border-gray-300 text-primary focus:ring-primary" 
                                             />
                                         </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Category
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Products
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Status
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Actions
-                                </th>
+                            <th className="table-header-cell">Category</th>
+                            <th className="table-header-cell">Products</th>
+                            <th className="table-header-cell">Status</th>
+                            <th className="table-header-cell-right">Actions</th>
+                        </tr>
+                    </thead>
+
+                    {/* Table body */}
+                    <tbody className="table-body">
+                        {/* Loading state: skeleton rows */}
+                        {isLoading && (
+                            <>
+                                {[...Array(5)].map((_, index) => (
+                                    <tr key={`skeleton-${index}`}>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-4 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div>
+                                                <div className="h-4 w-40 animate-pulse rounded bg-gray-300 mb-1" />
+                                                <div className="h-3 w-32 animate-pulse rounded bg-gray-300" />
+                                            </div>
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-6 w-20 animate-pulse rounded-full bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-6 w-16 animate-pulse rounded-full bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </>
+                        )}
+
+                        {/* Error state */}
+                        {isError && !isLoading && (
+                            <tr>
+                                <td colSpan={5} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiAlertTriangle className="text-red-500" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">{errorMessage}</p>
+                                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                                    {categories.map((category) => (
-                                        <tr key={category._id || category.id} className="hover:bg-light">
-                                            <td className="px-6 py-4 whitespace-nowrap">
+                        )}
+
+                        {/* Empty state */}
+                        {!isLoading && !isError && categories.length === 0 && (
+                            <tr>
+                                <td colSpan={5} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiGrid className="text-gray-400" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">No categories found.</p>
+                                        {debouncedSearch || filterStatus !== 'all' ? (
+                                            <p className="mt-2 text-sm text-gray-400">
+                                                Try adjusting your search or filters.
+                                            </p>
+                                        ) : (
+                                            <Link to="/categories/add" className="mt-4 btn-primary inline-flex items-center">
+                                                <FiPlus className="mr-2 h-4 w-4" />
+                                                Add Category
+                                            </Link>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+
+                        {/* Category rows */}
+                        {!isLoading &&
+                            !isError &&
+                            categories.map((category) => (
+                                <tr key={category._id || category.id} className="table-row">
+                                    <td className="table-cell">
                                                 <input 
                                                     type="checkbox" 
                                                     checked={selectedCategories.includes(category._id || category.id)}
@@ -238,31 +255,31 @@ const Categories = () => {
                                                     className="rounded border-gray-300 text-primary focus:ring-primary" 
                                                 />
                                             </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                                    <td className="table-cell">
                                         <div>
                                             <div className="text-sm font-medium text-gray-900">{category.name}</div>
                                             <div className="text-sm text-gray-500">{category.slug}</div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
+                                    <td className="table-cell">
                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                             {category.productCount || 0} products
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                <StatusBadge status={category.status || (category.isActive ? 'active' : 'inactive')} />
+                                    <td className="table-cell">
+                                                <StatusBadge status={category.status || (category.isActive ? 'active' : 'inactive')} type="category-status" />
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex items-center justify-end space-x-2">
+                                    <td className="table-cell">
+                                        <div className="flex items-center justify-end gap-2">
                                             <button
                                                 onClick={() => handleEdit(category)}
-                                                className="text-primary hover:text-secondary"
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-primary transition hover:bg-primary/10"
                                             >
                                                 <FiEdit className="h-4 w-4" />
                                             </button>
                                             <button
                                                 onClick={() => setConfirmDelete({ open: true, category })}
-                                                className="text-red-600 hover:text-red-900"
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-red-600 transition hover:bg-red-50"
                                             >
                                                 <FiTrash2 className="h-4 w-4" />
                                             </button>
@@ -275,17 +292,17 @@ const Categories = () => {
                 </div>
 
                         {/* Selection Info */}
-                        {selectedCategories.length > 0 && (
-                            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
+            {selectedCategories.length > 0 && !isLoading && !isError && (
+                <div className="mt-4 px-6 py-3 bg-gray-50 rounded-lg border border-gray-200">
                                 <p className="text-sm text-gray-600">
                                     {selectedCategories.length} of {categories.length} selected
                                 </p>
                     </div>
                         )}
 
-                        {/* Pagination */}
-                        {totalPages > 1 && (
-                            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
+            {/* Pagination - separate from table container */}
+            {!isLoading && !isError && totalPages > 1 && (
+                <div className="mt-4">
                                 <Pagination
                                     currentPage={pagination.currentPage || currentPage}
                                     totalPages={totalPages}
@@ -297,9 +314,6 @@ const Categories = () => {
                                 />
                     </div>
                         )}
-                </>
-                )}
-            </div>
 
             {/* Delete Confirmation Modal */}
             {confirmDelete.open && (

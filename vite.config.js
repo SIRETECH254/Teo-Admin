@@ -9,9 +9,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          router: ['react-router-dom'],
-          ui: ['@reduxjs/toolkit', 'react-redux']
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['@reduxjs/toolkit', 'react-redux'],
+          utils: ['axios', 'socket.io-client', 'recharts']
         }
       }
     },

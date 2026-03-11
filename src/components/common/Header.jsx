@@ -14,8 +14,9 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
 
     // Get cart data for count
     const { data: cartData } = useGetCart()
-    const cartItems = cartData?.data?.data?.items || []
-    const cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0)
+    // Backend returns: { success: true, data: { items: [], totalItems: number } }
+    const cart = cartData?.data || null
+    const totalItems = cart?.totalItems || 0
 
 
     const handleLogout = async () => {
@@ -77,13 +78,13 @@ const Header = ({ toggleSidebar, isSidebarOpen }) => {
                             className="p-2 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-md relative"
                         >
                             <div className="relative">
-                            <FiShoppingCart className="h-6 w-6" />
-                            {cartItemCount > 0 && (
-                                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                                    {cartItemCount > 99 ? '99+' : cartItemCount}
-                                </span>
-                            )}
-                        </div>
+                                <FiShoppingCart className="h-6 w-6" />
+                                {totalItems > 0 && (
+                                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-semibold rounded-full h-5 w-5 flex items-center justify-center min-w-[1.25rem]">
+                                        {totalItems > 99 ? '99+' : totalItems}
+                                    </span>
+                                )}
+                            </div>
                         </button>
 
                         {/* Notifications */}

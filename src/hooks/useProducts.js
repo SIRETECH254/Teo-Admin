@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { productAPI } from '../utils/api'
+import { productAPI } from '../api'
 import toast from 'react-hot-toast'
 
 // Get all products
@@ -34,23 +34,15 @@ export const useCreateProduct = () => {
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: async (formData) => {
-            console.log('useCreateProduct - Received FormData')
-            console.log('useCreateProduct - FormData entries:')
-            for (let [key, value] of formData.entries()) {
-                if (key === 'images') {
-                    console.log(`  ${key}: File object - ${value.name} (${value.size} bytes)`)
-                } else {
-                    console.log(`  ${key}: ${value}`)
-                }
-            }
-
-            const response = await productAPI.createProduct(formData)
+        mutationFn: async (payload) => {
+            // Handle both FormData (with images) and JSON (without images)
+            const response = await productAPI.createProduct(payload)
             return response.data
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             toast.success(data.message || 'Product created successfully')
+            return data
         },
         onError: (error) => {
             console.error('Create product error:', error)
@@ -98,6 +90,7 @@ export const useUpdateProduct = () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
             toast.success(data.message || 'Product updated successfully')
+            return data
         },
         onError: (error) => {
             console.error('Update product error:', error)
@@ -118,6 +111,7 @@ export const useDeleteProduct = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             toast.success(data.message || 'Product deleted successfully')
+            return data
         },
         onError: (error) => {
             console.error('Delete product error:', error)
@@ -144,6 +138,7 @@ export const useUploadProductImages = () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
             toast.success(data.message || 'Images uploaded successfully')
+            return data
         },
         onError: (error) => {
             console.error('Upload images error:', error)
@@ -165,6 +160,7 @@ export const useDeleteProductImage = () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
             toast.success(data.message || 'Image deleted successfully')
+            return data
         },
         onError: (error) => {
             console.error('Delete image error:', error)
@@ -186,6 +182,7 @@ export const useSetPrimaryImage = () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
             toast.success(data.message || 'Primary image updated successfully')
+            return data
         },
         onError: (error) => {
             console.error('Set primary image error:', error)
@@ -206,6 +203,7 @@ export const useUpdateSKU = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
+            toast.success(data?.message || 'SKU updated successfully')
         },
         onError: (error) => {
             console.error('Update SKU error:', error)
@@ -227,6 +225,7 @@ export const useDeleteSKU = () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
             toast.success(data.message || 'SKU deleted successfully')
+            return data
         },
         onError: (error) => {
             console.error('Delete SKU error:', error)
@@ -248,6 +247,7 @@ export const useGenerateSKUs = () => {
             queryClient.invalidateQueries({ queryKey: ['products'] })
             queryClient.invalidateQueries({ queryKey: ['product'] })
             toast.success(data.message || 'SKUs generated successfully')
+            return data
         },
         onError: (error) => {
             console.error('Generate SKUs error:', error)

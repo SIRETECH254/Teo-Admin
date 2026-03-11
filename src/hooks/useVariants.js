@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { variantAPI } from '../utils/api'
+import { variantAPI } from '../api'
 
 
 export const useCreateVariant = () => {
@@ -81,5 +81,45 @@ export const useGetActiveVariants = () => {
         queryFn: () => variantAPI.getActiveVariants(),
         staleTime: 5 * 60 * 1000, // 5 minutes
         gcTime: 10 * 60 * 1000, // 10 minutes
+    })
+}
+
+// Add option to variant
+export const useAddVariantOption = () => {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async ({ variantId, optionData }) => {
+            const response = await variantAPI.addOption(variantId, optionData)
+            return response.data
+        },
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['variants', variables.variantId] })
+            queryClient.invalidateQueries({ queryKey: ['variants'] })
+        },
+        onError: (error) => {
+            console.error('Error adding variant option:', error)
+            throw error
+        }
+    })
+}
+
+// Remove option from variant
+export const useRemoveVariantOption = () => {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async ({ variantId, optionId }) => {
+            await variantAPI.removeOption(variantId, optionId)
+            return { variantId, optionId }
+        },
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['variants', variables.variantId] })
+            queryClient.invalidateQueries({ queryKey: ['variants'] })
+        },
+        onError: (error) => {
+            console.error('Error removing variant option:', error)
+            throw error
+        }
     })
 }

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { userAPI } from '../utils/api'
+import { userAPI } from '../api'
 import toast from 'react-hot-toast'
 
 // Get all users (admin)
@@ -42,6 +42,7 @@ export const useUpdateUserStatus = () => {
             queryClient.invalidateQueries({ queryKey: ['users'] })
             queryClient.invalidateQueries({ queryKey: ['user'] })
             toast.success(data.message || 'User updated successfully')
+            return data
         },
         onError: (error) => {
             console.error('Update user error:', error)
@@ -62,6 +63,7 @@ export const useDeleteUser = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['users'] })
             toast.success(data.message || 'User deleted successfully')
+            return data
         },
         onError: (error) => {
             console.error('Delete user error:', error)
@@ -70,3 +72,22 @@ export const useDeleteUser = () => {
     })
 }
 
+// Admin: Create customer
+export const useAdminCreateCustomer = () => {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async (customerData) => {
+            const response = await userAPI.adminCreateCustomer(customerData)
+            return response.data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['users'] })
+            toast.success('Customer created successfully')
+        },
+        onError: (error) => {
+            console.error('Error creating customer:', error)
+            toast.error(error.response?.data?.message || 'Failed to create customer')
+        }
+    })
+}

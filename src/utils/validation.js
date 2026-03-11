@@ -2,18 +2,12 @@ import * as yup from 'yup'
 
 // Login validation schema
 export const loginSchema = yup.object().shape({
-    email: yup.string().when('loginMethod', {
-        is: 'email',
-        then: (schema) => schema.email('Please enter a valid email address').required('Email is required'),
-        otherwise: (schema) => schema.notRequired()
-    }),
-    phone: yup.string().when('loginMethod', {
-        is: 'phone',
-        then: (schema) => schema.required('Phone number is required').min(9, 'Phone number must be at least 9 digits'),
-        otherwise: (schema) => schema.notRequired()
-    }),
-    password: yup.string().required('Password is required').min(6, 'Password must be at least 6 characters'),
-    loginMethod: yup.string().oneOf(['email', 'phone'], 'Invalid login method').required('Login method is required')
+    email: yup.string()
+        .email('Please enter a valid email address')
+        .required('Email is required'),
+    password: yup.string()
+        .required('Password is required')
+        .min(6, 'Password must be at least 6 characters')
 })
 
 // OTP validation schema

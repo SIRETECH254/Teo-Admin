@@ -1,6 +1,5 @@
-import { useMemo, useState, useEffect, useCallback } from 'react'
-import { useOverviewStats, useAnalytics } from '../hooks/useStats'
-import { orderAPI } from '../utils/api'
+import { useMemo, useState, useCallback } from 'react'
+import { useOverviewStats, useAnalytics, useGetRecentOrders } from '../hooks/useStats'
 import { FiDollarSign, FiShoppingBag, FiUsers, FiActivity, FiArrowUpRight, FiArrowDownRight, FiMail, FiChevronDown } from 'react-icons/fi'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
@@ -10,31 +9,17 @@ const Dashboard = () => {
     
     const { data: overviewRes, isLoading: isLoadingOverview } = useOverviewStats()
 
-    const { data: analyticsRes, isLoading: isLoadingAnalytics } = useAnalytics({ range: selectedRange })
+    const { data: analyticsRes } = useAnalytics({ range: selectedRange })
 
-    const [recentOrders, setRecentOrders] = useState([])
-
-    // Memoized recent orders loading function
-    const loadRecentOrders = useCallback(async () => {
-        try {
-            const res = await orderAPI.getOrders({ page: 1, limit: 5 })
-            setRecentOrders(res.data?.data?.orders || [])
-        } catch (_) {
-            setRecentOrders([])
-        }
-    }, [])
-
-    useEffect(() => {
-        loadRecentOrders()
-    }, [loadRecentOrders])
+    const { data: recentOrders = [] } = useGetRecentOrders({ page: 1, limit: 5 })
 
     // Memoized stats data
-    const stats = useMemo(() => overviewRes?.data || {}, [overviewRes?.data])
+    const stats = useMemo(() => overviewRes || {}, [overviewRes])
 
     // Memoized analytics series
-    const paidOrdersSeries = useMemo(() => analyticsRes?.data?.paidOrdersSeries || [], [analyticsRes?.data?.paidOrdersSeries])
-    const revenueSeries = useMemo(() => analyticsRes?.data?.revenueSeries || [], [analyticsRes?.data?.revenueSeries])
-    const customersSeries = useMemo(() => analyticsRes?.data?.customersSeries || [], [analyticsRes?.data?.customersSeries])
+    const paidOrdersSeries = useMemo(() => analyticsRes?.paidOrdersSeries || [], [analyticsRes?.paidOrdersSeries])
+    const revenueSeries = useMemo(() => analyticsRes?.revenueSeries || [], [analyticsRes?.revenueSeries])
+    const customersSeries = useMemo(() => analyticsRes?.customersSeries || [], [analyticsRes?.customersSeries])
 
     // Memoized calculation function
     const calcChange = useCallback((series, range) => {

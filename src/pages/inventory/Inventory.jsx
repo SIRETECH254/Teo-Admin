@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FiSearch, FiFilter, FiList, FiX, FiPackage, FiArrowUpCircle, FiArrowDownCircle, FiChevronDown, FiChevronRight } from 'react-icons/fi'
+import { FiSearch, FiFilter, FiList, FiX, FiPackage, FiArrowUpCircle, FiArrowDownCircle, FiChevronDown, FiChevronRight, FiImage, FiAlertTriangle } from 'react-icons/fi'
 import { useGetProducts, useUpdateSKU } from '../../hooks/useProducts'
 import { useGetBrands } from '../../hooks/useBrands'
 import { useGetCategories } from '../../hooks/useCategories'
-import { useGetVariants } from '../../hooks/useVariants'
 import Pagination from '../../components/common/Pagination'
 import toast from 'react-hot-toast'
 
@@ -46,10 +45,9 @@ const Inventory = () => {
   }, [filterBrand, filterCategory, debouncedSearch, currentPage, itemsPerPage])
 
 
-  const { data, isLoading } = useGetProducts(params)
+  const { data, isLoading, isError, error } = useGetProducts(params)
   const { data: brandsData } = useGetBrands({ limit: 100 })
   const { data: categoriesData } = useGetCategories({ limit: 100 })
-  const { data: variantsData } = useGetVariants({ limit: 1000 })
   const updateSku = useUpdateSKU()
 
 
@@ -65,29 +63,32 @@ const Inventory = () => {
     setExpanded((prev) => ({ ...prev, [productId]: !prev[productId] }))
   }
 
-  // Build quick lookups for variant name and option value by id
-  const variantNameById = useMemo(() => {
-    const list = variantsData?.data?.data || variantsData?.data || variantsData || []
-    const map = {}
-    list.forEach(v => { map[v._id] = v.name })
-    return map
-  }, [variantsData])
-
-  const optionValueById = useMemo(() => {
-    const list = variantsData?.data?.data || variantsData?.data || variantsData || []
-    const map = {}
-    list.forEach(v => {
-      ;(v.options || []).forEach(opt => { map[opt._id] = opt.value })
-    })
-    return map
-  }, [variantsData])
-
+  // Render SKU attributes using populated data from backend
+  // Backend populates variantId and optionId as full objects with name/value
+  // optionId can be: object with _id and value, or just a string ID
   const renderSkuAttributes = (sku) => {
-    const attrs = (sku.attributes || []).map(a => {
-      const variantName = variantNameById[a.variantId] || 'Option'
-      const optionValue = optionValueById[a.optionId] || '-'
+    if (!sku.attributes || sku.attributes.length === 0) {
+      return sku.skuCode || '-'
+    }
+    
+    const attrs = sku.attributes.map(attr => {
+      // Backend populates variantId as object with name and options
+      const variant = typeof attr.variantId === 'object' && attr.variantId !== null 
+        ? attr.variantId 
+        : null
+      
+      // Backend populates optionId as full Option object with _id and value
+      // Handle both populated object format and string ID format
+      const option = typeof attr.optionId === 'object' && attr.optionId !== null
+        ? attr.optionId
+        : null
+      
+      const variantName = variant?.name || 'Option'
+      // Extract value from populated option object, or use '-' if not available
+      const optionValue = option?.value || option?._id || '-'
       return `${variantName}: ${optionValue}`
     })
+    
     return attrs.length ? attrs.join(', ') : (sku.skuCode || '-')
   }
 
@@ -144,74 +145,114 @@ const Inventory = () => {
       }
       
       await updateSku.mutateAsync({ productId: product._id, skuId: sku._id, skuData })
-      toast.success('SKU updated successfully')
       closeSkuManagement()
     } catch (e) {
-      toast.error('Failed to update SKU')
+      // Error is handled by the hook's onError callback
     }
   }
 
 
+  // Get error message from API response
+  const errorMessage = error?.response?.data?.message || 'Failed to load inventory.'
+
   return (
     <div className="p-4">
-      <div className="mb-4">
-        <h1 className="title2">Inventory</h1>
-        <p className="text-gray-600">Manage SKUs, stock levels, and low‑stock thresholds</p>
-      </div>
+      {/* Shared Header - Always Visible */}
+      <header className="mb-4">
+        <div className="mb-4">
+          <h1 className="title2">Inventory</h1>
+          <p className="text-gray-600">Manage SKUs, stock levels, and low‑stock thresholds</p>
+        </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 mb-4">
-        <div className="flex-1">
+        <div className="flex flex-col sm:flex-row gap-4 mb-4">
+          <div className="flex-1">
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <input
+                type="text"
+                placeholder="Search products or SKU code..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+              {searchTerm && (
+                <button type="button" onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="Clear search">
+                  <FiX className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="relative">
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <input
-              type="text"
-              placeholder="Search products or SKU code..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-9 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-            />
-            {searchTerm && (
-              <button type="button" onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" aria-label="Clear search">
-                <FiX className="h-4 w-4" />
-              </button>
-            )}
+            <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-3 w-3" />
+            <select value={filterBrand} onChange={(e) => { setFilterBrand(e.target.value); setCurrentPage(1) }} className="border border-gray-300 rounded-lg pl-8 pr-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary appearance-none bg-white text-xs">
+              <option value="all">Brand: All</option>
+              {brands.map((b) => (<option key={b._id} value={b._id}>{b.name}</option>))}
+            </select>
+          </div>
+
+          <div className="relative">
+            <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-3 w-3" />
+            <select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1) }} className="border border-gray-300 rounded-lg pl-8 pr-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary appearance-none bg-white text-xs">
+              <option value="all">Category: All</option>
+              {categories.map((c) => (<option key={c._id} value={c._id}>{c.name}</option>))}
+            </select>
+          </div>
+
+          <div className="relative">
+            <FiList className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-3 w-3" />
+            <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1) }} className="border border-gray-300 rounded-lg pl-8 pr-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary appearance-none bg-white text-xs">
+              {[5, 10, 20, 50].map(n => (<option key={n} value={n}>Rows: {n}</option>))}
+            </select>
           </div>
         </div>
+      </header>
 
-        <div className="relative">
-          <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-3 w-3" />
-          <select value={filterBrand} onChange={(e) => { setFilterBrand(e.target.value); setCurrentPage(1) }} className="border border-gray-300 rounded-lg pl-8 pr-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary appearance-none bg-white text-xs">
-            <option value="all">Brand: All</option>
-            {brands.map((b) => (<option key={b._id} value={b._id}>{b.name}</option>))}
-          </select>
-        </div>
-
-        <div className="relative">
-          <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-3 w-3" />
-          <select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1) }} className="border border-gray-300 rounded-lg pl-8 pr-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary appearance-none bg-white text-xs">
-            <option value="all">Category: All</option>
-            {categories.map((c) => (<option key={c._id} value={c._id}>{c.name}</option>))}
-          </select>
-        </div>
-
-        <div className="relative">
-          <FiList className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-3 w-3" />
-          <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(parseInt(e.target.value)); setCurrentPage(1) }} className="border border-gray-300 rounded-lg pl-8 pr-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary appearance-none bg-white text-xs">
-            {[5, 10, 20, 50].map(n => (<option key={n} value={n}>Rows: {n}</option>))}
-          </select>
-        </div>
-      </div>
-
+      {/* Main Content Container */}
       <div className="bg-light rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        {isLoading ? (
-          <div className="p-6 text-sm text-gray-500">Loading inventory...</div>
-        ) : products.length === 0 ? (
+        {/* Loading state: skeleton rows */}
+        {isLoading && (
+          <div className="divide-y divide-gray-200 [&>*]:py-3">
+            {[...Array(5)].map((_, index) => (
+              <div key={`skeleton-${index}`} className="px-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 animate-pulse rounded-lg bg-gray-300" />
+                    <div>
+                      <div className="h-4 w-40 animate-pulse rounded bg-gray-300 mb-2" />
+                      <div className="h-3 w-24 animate-pulse rounded bg-gray-300" />
+                    </div>
+                  </div>
+                  <div className="h-4 w-4 animate-pulse rounded bg-gray-300" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Error state */}
+        {isError && !isLoading && (
           <div className="py-16 px-6 text-center">
-            <div className="mx-auto h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center"><FiPackage className="h-6 w-6 text-primary" /></div>
+            <div className="flex flex-col items-center justify-center gap-3">
+              <FiAlertTriangle className="text-red-500" size={48} />
+              <p className="text-sm font-medium text-gray-700">{errorMessage}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!isLoading && !isError && products.length === 0 && (
+          <div className="py-16 px-6 text-center">
+            <div className="mx-auto h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+              <FiPackage className="h-6 w-6 text-primary" />
+            </div>
             <h3 className="mt-4 text-lg font-semibold text-gray-900">No products found</h3>
             <p className="mt-1 text-sm text-gray-500">Adjust filters or add products with SKUs to manage inventory.</p>
           </div>
-        ) : (
+        )}
+
+        {/* Product list */}
+        {!isLoading && !isError && products.length > 0 && (
           <div className="divide-y divide-gray-200 [&>*]:py-3">
             {products.map((p) => (
               <div key={p._id} className="px-4">
@@ -220,9 +261,22 @@ const Inventory = () => {
                   onClick={() => toggleProduct(p._id)}
                   aria-expanded={!!expanded[p._id]}
                 >
-                  <div>
-                    <h4 className="text-sm font-semibold text-primary">{p.title}</h4>
-                    <div className="text-xs text-gray-500">{(p.skus || []).reduce((sum, s) => sum + (Number(s.stock) || 0), 0)} units • {p.trackInventory ? 'Tracking' : 'Not tracking'}</div>
+                  <div className="flex items-center gap-3">
+                    {p.images && p.images.length > 0 ? (
+                      <img
+                        className="h-10 w-10 rounded-lg object-cover"
+                        src={p.images.find(img => img.isPrimary)?.url || p.images[0]?.url}
+                        alt={p.title}
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-lg bg-gray-200 flex items-center justify-center">
+                        <FiImage className="h-5 w-5 text-gray-400" />
+                      </div>
+                    )}
+                    <div>
+                      <h4 className="text-sm font-semibold text-primary">{p.title}</h4>
+                      <div className="text-xs text-gray-500">{(p.skus || []).reduce((sum, s) => sum + (Number(s.stock) || 0), 0)} units • {p.trackInventory ? 'Tracking' : 'Not tracking'}</div>
+                    </div>
                   </div>
 
                   <div className="ml-4 text-gray-500">
@@ -273,8 +327,8 @@ const Inventory = () => {
         )}
       </div>
 
-      {totalPages > 1 && (
-        <div className="px-2 py-3">
+      {!isLoading && !isError && totalPages > 1 && (
+        <div className="mt-4">
           <Pagination
             currentPage={pagination.page || currentPage}
             totalPages={totalPages}
@@ -355,14 +409,24 @@ const Inventory = () => {
               {skuManagement.sku?.attributes && skuManagement.sku.attributes.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {skuManagement.sku.attributes.map(attr => {
-                    // Find variant in the variants array
-                    const variant = variantsData?.data?.data?.find(v => v._id === attr.variantId) || 
-                                  variantsData?.data?.find(v => v._id === attr.variantId) ||
-                                  variantsData?.find(v => v._id === attr.variantId)
-                    const option = variant?.options?.find(o => o._id === attr.optionId)
+                    // Backend populates variantId as object with name and options
+                    const variant = typeof attr.variantId === 'object' && attr.variantId !== null
+                      ? attr.variantId
+                      : null
+                    
+                    // Backend populates optionId as full Option object with _id and value
+                    // Handle both populated object format and string ID format
+                    const option = typeof attr.optionId === 'object' && attr.optionId !== null
+                      ? attr.optionId
+                      : null
+                    
+                    const variantName = variant?.name || 'Unknown'
+                    // Extract value from populated option object
+                    const optionValue = option?.value || option?._id || 'Unknown'
+                    
                     return (
-                      <span key={attr._id} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
-                        {variant?.name || 'Unknown'}: {option?.value || 'Unknown'}
+                      <span key={attr._id || Math.random()} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                        {variantName}: {optionValue}
                       </span>
                     )
                   })}

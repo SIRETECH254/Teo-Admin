@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { FiPlus, FiEdit, FiSearch, FiFilter, FiX, FiList, FiTrash2, FiAlertTriangle } from 'react-icons/fi'
 import Pagination from '../../components/common/Pagination'
-import api from '../../utils/api'
+import StatusBadge from '../../components/common/StatusBadge'
+import { useGetRoles, useDeleteRole } from '../../hooks/useRoles'
 
 
 const Roles = () => {
@@ -13,9 +14,6 @@ const Roles = () => {
     const [itemsPerPage, setItemsPerPage] = useState(10)
     const [selectedRoles, setSelectedRoles] = useState([])
     const [confirmDelete, setConfirmDelete] = useState({ open: false, role: null })
-
-    const [data, setData] = useState(null)
-    const [loading, setLoading] = useState(false)
 
     useEffect(() => {
         const t = setTimeout(() => setDebouncedSearch(searchTerm), 300)
@@ -31,17 +29,11 @@ const Roles = () => {
         return p
     }, [debouncedSearch, filterActive, currentPage, itemsPerPage])
 
-    const load = useCallback(async () => {
-        setLoading(true)
-        try {
-            const res = await api.get('/roles', { params })
-            setData(res.data)
-        } finally {
-            setLoading(false)
-        }
-    }, [params])
-
-    useEffect(() => { load() }, [load])
+    const { data, isLoading: loading, isError, error } = useGetRoles(params)
+    
+    // Get error message from API response
+    const errorMessage = error?.response?.data?.message || 'Failed to load roles.'
+    const deleteRole = useDeleteRole()
 
     const roles = useMemo(() => data?.data?.roles || [], [data])
     const pagination = useMemo(() => data?.data?.pagination || {}, [data])
@@ -61,40 +53,11 @@ const Roles = () => {
     const onDelete = (role) => setConfirmDelete({ open: true, role })
     const confirmDeleteRole = async () => {
         try {
-            await api.delete(`/roles/${confirmDelete.role._id}`)
+            await deleteRole.mutateAsync(confirmDelete.role._id)
             setConfirmDelete({ open: false, role: null })
-            load()
         } catch {}
     }
 
-    const LoadingSkeleton = () => (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" /></th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                            <tr key={i}>
-                                <td className="px-6 py-4"><div className="h-4 w-4 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4"><div className="h-4 w-40 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4"><div className="h-4 w-72 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4"><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></td>
-                                <td className="px-6 py-4 text-right"><div className="h-8 w-24 bg-gray-200 rounded animate-pulse ml-auto" /></td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    )
 
     return (
         <div className="p-4">
@@ -174,38 +137,114 @@ const Roles = () => {
                 </div>
             </header>
 
-            <div className="bg-light rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                {loading ? (
-                    <LoadingSkeleton />
-                ) : roles.length === 0 ? (
-                    <div className="py-16 px-6 text-center">
-                        <h3 className="mt-4 text-lg font-semibold text-gray-900">No roles</h3>
-                        <p className="mt-1 text-sm text-gray-500">Create your first role to get started.</p>
-                    </div>
-                ) : (
-                <>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-light">
+            {/* Roles Table */}
+            <div className="table-container">
+                <table className="table">
+                    {/* Table header */}
+                    <thead className="table-header">
+                        <tr>
+                            <th className="table-header-cell">
+                                <input type="checkbox" checked={selectedRoles.length === roles.length && roles.length > 0} onChange={handleSelectAll} className="rounded border-gray-300 text-primary focus:ring-primary" />
+                            </th>
+                            <th className="table-header-cell">Role</th>
+                            <th className="table-header-cell">Description</th>
+                            <th className="table-header-cell">Status</th>
+                            <th className="table-header-cell-right">Actions</th>
+                        </tr>
+                    </thead>
+
+                    {/* Table body */}
+                    <tbody className="table-body">
+                        {/* Loading state: skeleton rows */}
+                        {loading && (
+                            <>
+                                {[...Array(5)].map((_, index) => (
+                                    <tr key={`skeleton-${index}`}>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-4 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-40 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-72 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-6 w-16 animate-pulse rounded-full bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </>
+                        )}
+
+                        {/* Error state */}
+                        {isError && !loading && (
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><input type="checkbox" checked={selectedRoles.length === roles.length && roles.length > 0} onChange={handleSelectAll} className="rounded border-gray-300 text-primary focus:ring-primary" /></th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <td colSpan={5} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiAlertTriangle className="text-red-500" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">{errorMessage}</p>
+                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {roles.map((role) => (
-                                <tr key={role._id} className="hover:bg-light">
-                                    <td className="px-6 py-4 whitespace-nowrap"><input type="checkbox" checked={selectedRoles.includes(role._id)} onChange={() => handleSelect(role._id)} className="rounded border-gray-300 text-primary focus:ring-primary" /></td>
-                                    <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium text-gray-900">{role.name}</div></td>
-                                    <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm text-gray-700">{role.description || '—'}</div></td>
-                                    <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2 py-0.5 rounded text-xs border ${role.isActive ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200'}`}>{role.isActive ? 'Active' : 'Inactive'}</span></td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <div className="flex items-center justify-end space-x-2">
-                                            <Link to={`/roles/${role._id}/edit`} className="text-primary hover:text-secondary" title="Edit role"><FiEdit className="h-4 w-4" /></Link>
-                                            <button onClick={() => onDelete(role)} className="text-red-600 hover:text-red-900" title="Delete role"><FiTrash2 className="h-4 w-4" /></button>
+                        )}
+
+                        {/* Empty state */}
+                        {!loading && !isError && roles.length === 0 && (
+                            <tr>
+                                <td colSpan={5} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiAlertTriangle className="text-gray-400" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">No roles found.</p>
+                                        {debouncedSearch || filterActive !== 'all' ? (
+                                            <p className="mt-2 text-sm text-gray-400">
+                                                Try adjusting your search or filters.
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+
+                        {/* Role rows */}
+                        {!loading &&
+                            !isError &&
+                            roles.map((role) => (
+                                <tr key={role._id} className="table-row">
+                                    <td className="table-cell">
+                                        <input type="checkbox" checked={selectedRoles.includes(role._id)} onChange={() => handleSelect(role._id)} className="rounded border-gray-300 text-primary focus:ring-primary" />
+                                    </td>
+                                    <td className="table-cell-text font-medium text-gray-900">
+                                        {role.name}
+                                    </td>
+                                    <td className="table-cell-text">
+                                        {role.description || '—'}
+                                    </td>
+                                    <td className="table-cell">
+                                        <StatusBadge status={role.isActive ? 'active' : 'inactive'} />
+                                    </td>
+                                    <td className="table-cell">
+                                        <div className="flex items-center justify-end gap-2">
+                                            <Link
+                                                to={`/roles/${role._id}/edit`}
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-primary transition hover:bg-primary/10"
+                                                title="Edit role"
+                                            >
+                                                <FiEdit className="h-4 w-4" />
+                                            </Link>
+                                            <button
+                                                onClick={() => onDelete(role)}
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-red-600 transition hover:bg-red-50"
+                                                title="Delete role"
+                                            >
+                                                <FiTrash2 className="h-4 w-4" />
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -214,20 +253,26 @@ const Roles = () => {
                     </table>
                 </div>
 
-                {selectedRoles.length > 0 && (
-                    <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
+            {/* Selection Info */}
+            {selectedRoles.length > 0 && !loading && !isError && (
+                <div className="mt-4 px-6 py-3 bg-gray-50 rounded-lg border border-gray-200">
                         <p className="text-sm text-gray-600">{selectedRoles.length} of {roles.length} selected</p>
                     </div>
                 )}
 
-                {totalPages > 1 && (
-                    <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
-                        <Pagination currentPage={pagination.currentPage || currentPage} totalPages={totalPages} onPageChange={(p) => setCurrentPage(p)} totalItems={totalItems} pageSize={itemsPerPage} currentPageCount={roles.length} />
+            {/* Pagination - separate from table container */}
+            {!loading && !isError && totalPages > 1 && (
+                <div className="mt-4">
+                    <Pagination
+                        currentPage={pagination.currentPage || currentPage}
+                        totalPages={totalPages}
+                        onPageChange={(p) => setCurrentPage(p)}
+                        totalItems={totalItems}
+                        pageSize={itemsPerPage}
+                        currentPageCount={roles.length}
+                    />
                     </div>
                 )}
-                </>
-                )}
-            </div>
         </div>
     )
 }

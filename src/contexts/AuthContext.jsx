@@ -2,7 +2,7 @@ import { createContext, useContext, useReducer, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { setAuthLoading, setAuthSuccess, clearAuth, setAuthFailure } from '../store/slices/authSlice'
-import { authAPI, userAPI } from '../utils/api'
+import { authAPI, userAPI } from '../api'
 import toast from 'react-hot-toast'
 
 // Initial state
@@ -122,8 +122,8 @@ export const AuthProvider = ({ children }) => {
         const refreshUserInBackground = async () => {
             if (!token) return
             try {
-                const response = await authAPI.getMe()
-                const userData = response.data.data.user
+                const res = await authAPI.getMe()
+                const userData = res.data.data.user
                 localStorage.setItem('user', JSON.stringify(userData))
                 dispatch({
                     type: AUTH_ACTIONS.LOGIN_SUCCESS,

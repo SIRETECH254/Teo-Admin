@@ -1,11 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGetProductById } from '../../hooks/useProducts'
-import { useGetBrands } from '../../hooks/useBrands'
-import { useGetCategories } from '../../hooks/useCategories'
-import { useGetCollections } from '../../hooks/useCollections'
-import { useGetTags } from '../../hooks/useTags'
-import { useGetVariants } from '../../hooks/useVariants'
 import { useAddToCart } from '../../hooks/useCart'
 import { FiArrowLeft, FiShoppingCart, FiPackage, FiGrid, FiTag, FiLayers, FiDollarSign, FiImage, FiCheck, FiPlus, FiMinus, FiHeart, FiShare2, FiStar, FiTruck, FiShield, FiRefreshCw } from 'react-icons/fi'
 import VariantSelector from '../../components/common/VariantSelector'
@@ -19,21 +14,36 @@ const ProductDetails = () => {
     const navigate = useNavigate()
     const addToCart = useAddToCart()
 
-    // Product data with memoized processing
+    // Product data - backend already populates brand, categories, collections, tags, variants
     const { data: productData, isLoading } = useGetProductById(id)
-    const { data: brandsData } = useGetBrands({ limit: 100 })
-    const { data: categoriesData } = useGetCategories({ limit: 100 })
-    const { data: collectionsData } = useGetCollections({ limit: 100 })
-    const { data: tagsData } = useGetTags({ limit: 100 })
-    const { data: variantsData } = useGetVariants({ limit: 100 })
 
-    // Memoize processed data to avoid re-computations
+    // Memoize processed data - use populated data from backend
     const product = useMemo(() => productData?.data, [productData])
-    const brands = useMemo(() => brandsData?.data?.data?.brands || [], [brandsData])
-    const categories = useMemo(() => categoriesData?.data?.data?.categories || [], [categoriesData])
-    const collections = useMemo(() => collectionsData?.data?.data?.collections || [], [collectionsData])
-    const tags = useMemo(() => tagsData?.data?.data?.tags || [], [tagsData])
-    const allVariants = useMemo(() => variantsData?.data?.data || [], [variantsData])
+    
+    // Extract populated data from product (backend already populates these)
+    const brand = useMemo(() => {
+        if (!product?.brand) return null
+        // Backend populates brand as object or ID
+        return typeof product.brand === 'object' ? product.brand : null
+    }, [product?.brand])
+    
+    const categories = useMemo(() => {
+        if (!product?.categories) return []
+        // Backend populates categories as array of objects
+        return product.categories.filter(c => typeof c === 'object' && c.name)
+    }, [product?.categories])
+    
+    const collections = useMemo(() => {
+        if (!product?.collections) return []
+        // Backend populates collections as array of objects
+        return product.collections.filter(c => typeof c === 'object' && c.name)
+    }, [product?.collections])
+    
+    const tags = useMemo(() => {
+        if (!product?.tags) return []
+        // Backend populates tags as array of objects
+        return product.tags.filter(t => typeof t === 'object' && t.name)
+    }, [product?.tags])
 
     // State for cart and variant selection
     const [selectedVariants, setSelectedVariants] = useState({})
@@ -42,26 +52,23 @@ const ProductDetails = () => {
     const [currentImageIndex, setCurrentImageIndex] = useState(0)
     const [showCartSuccessModal, setShowCartSuccessModal] = useState(false)
 
-    // Memoize populated variants with options - MOVED UP to avoid initialization error
+    // Use selectedVariantOptions instead of variants - only show selected options
     const getPopulatedVariants = useMemo(() => {
-        // Check if product has variants directly (not as IDs)
-        if (product?.variants && Array.isArray(product.variants) && product.variants.length > 0) {
-            // If variants are already populated objects, return them directly
-            if (product.variants[0]?.options) {
-                return product.variants
-            }
-        }
-
-        // Fallback: if variants are stored as IDs, try to populate them
-        if (product?.variants && Array.isArray(product.variants) && allVariants.length > 0) {
-            return product.variants.map(variantId => {
-                const variant = allVariants.find(v => v._id === variantId)
-                return variant
-            }).filter(Boolean)
-        }
-
-        return []
-    }, [product?.variants, allVariants])
+        if (!product?.selectedVariantOptions || !Array.isArray(product.selectedVariantOptions)) return []
+        
+        // Transform selectedVariantOptions into variant-like objects with only selected options
+        return product.selectedVariantOptions
+            .filter(sel => sel.variantId && typeof sel.variantId === 'object' && sel.variantId.name)
+            .map(sel => ({
+                _id: sel.variantId._id,
+                name: sel.variantId.name,
+                // Only include options that are in optionIds (selected options)
+                options: Array.isArray(sel.optionIds) 
+                    ? sel.optionIds.filter(opt => typeof opt === 'object' && opt._id)
+                    : []
+            }))
+            .filter(v => v.options.length > 0)
+    }, [product?.selectedVariantOptions])
 
     // Memoize utility functions to avoid re-computations
     const getAvailableSKUs = useMemo(() => {
@@ -93,9 +100,17 @@ const ProductDetails = () => {
                     // Select the first available option
                     const firstAvailableOption = variant.options.find(option => {
                         const skuForOption = product.skus?.find(sku =>
-                            sku.attributes?.some(attr =>
-                                attr.variantId === variant._id && attr.optionId === option._id
-                            )
+                            sku.attributes?.some(attr => {
+                                // Backend populates variantId and optionId as objects or IDs
+                                const attrVariantId = typeof attr.variantId === 'object' 
+                                    ? attr.variantId._id || attr.variantId 
+                                    : attr.variantId
+                                const attrOptionId = typeof attr.optionId === 'object' 
+                                    ? attr.optionId._id || attr.optionId 
+                                    : attr.optionId
+                                return attrVariantId?.toString() === variant._id?.toString() && 
+                                       attrOptionId?.toString() === option._id?.toString()
+                            })
                         )
                         return skuForOption?.stock > 0
                     }) || variant.options[0]
@@ -112,9 +127,16 @@ const ProductDetails = () => {
     useEffect(() => {
         if (product && product.skus && Object.keys(selectedVariants).length > 0) {
             const matchingSKU = product.skus.find(sku => {
-                return sku.attributes.every(attr => 
-                    selectedVariants[attr.variantId] === attr.optionId
-                )
+                return sku.attributes.every(attr => {
+                    // Backend populates variantId and optionId as objects or IDs
+                    const attrVariantId = typeof attr.variantId === 'object' 
+                        ? attr.variantId._id || attr.variantId 
+                        : attr.variantId
+                    const attrOptionId = typeof attr.optionId === 'object' 
+                        ? attr.optionId._id || attr.optionId 
+                        : attr.optionId
+                    return selectedVariants[attrVariantId?.toString()] === attrOptionId?.toString()
+                })
             })
             setSelectedSKU(matchingSKU || null)
         } else {
@@ -234,31 +256,21 @@ const ProductDetails = () => {
 
 
 
-    // Memoize utility functions used in rendering
-    const getBrandName = useCallback((brandId) => {
-        const brand = brands.find(b => b._id === brandId)
-        return brand?.name || 'Unknown Brand'
-    }, [brands])
+    // Memoize utility functions - use populated data directly
+    const getBrandName = useCallback(() => {
+        return brand?.name || 'No brand'
+    }, [brand])
 
-    const getCategoryNames = useCallback((categoryIds) => {
-        return categoryIds?.map(id => {
-            const category = categories.find(c => c._id === id)
-            return category?.name || 'Unknown Category'
-        }).join(', ') || 'No categories'
+    const getCategoryNames = useCallback(() => {
+        return categories.map(c => c.name).join(', ') || 'No categories'
     }, [categories])
 
-    const getCollectionNames = useCallback((collectionIds) => {
-        return collectionIds?.map(id => {
-            const collection = collections.find(c => c._id === id)
-            return collection?.name || 'Unknown Collection'
-        }).join(', ') || 'No collections'
+    const getCollectionNames = useCallback(() => {
+        return collections.map(c => c.name).join(', ') || 'No collections'
     }, [collections])
 
-    const getTagNames = useCallback((tagIds) => {
-        return tagIds?.map(id => {
-            const tag = tags.find(t => t._id === id)
-            return tag?.name || 'Unknown Tag'
-        }).join(', ') || 'No tags'
+    const getTagNames = useCallback(() => {
+        return tags.map(t => t.name).join(', ') || 'No tags'
     }, [tags])
 
 
@@ -402,45 +414,45 @@ const ProductDetails = () => {
                                 {/* Classifications */}
                                 <div className="space-y-4">
                                     {/* Brand */}
-                                    {product.brand && (
+                                    {brand && (
                                         <div className="flex items-center space-x-2">
                                             <FiPackage className="h-4 w-4 text-gray-600" />
                                             <span className="text-sm text-gray-600">Brand:</span>
                                             <span className="text-sm font-medium text-gray-900">
-                                                {getBrandName(product.brand)}
+                                                {getBrandName()}
                                             </span>
                                         </div>
                                     )}
 
                                     {/* Categories */}
-                                    {product.categories && product.categories.length > 0 && (
+                                    {categories.length > 0 && (
                                         <div className="flex items-start space-x-2">
                                             <FiGrid className="h-4 w-4 text-gray-600 mt-0.5" />
                                             <span className="text-sm text-gray-600">Categories:</span>
                                             <span className="text-sm font-medium text-gray-900">
-                                                {getCategoryNames(product.categories.map(c => c._id || c))}
+                                                {getCategoryNames()}
                                             </span>
                                         </div>
                                     )}
 
                                     {/* Collections */}
-                                    {product.collections && product.collections.length > 0 && (
+                                    {collections.length > 0 && (
                                         <div className="flex items-start space-x-2">
                                             <FiLayers className="h-4 w-4 text-gray-600 mt-0.5" />
                                             <span className="text-sm text-gray-600">Collections:</span>
                                             <span className="text-sm font-medium text-gray-900">
-                                                {getCollectionNames(product.collections.map(c => c._id || c))}
+                                                {getCollectionNames()}
                                             </span>
                                         </div>
                                     )}
 
                                     {/* Tags */}
-                                    {product.tags && product.tags.length > 0 && (
+                                    {tags.length > 0 && (
                                         <div className="flex items-start space-x-2">
                                             <FiTag className="h-4 w-4 text-gray-600 mt-0.5" />
                                             <span className="text-sm text-gray-600">Tags:</span>
                                             <span className="text-sm font-medium text-gray-900">
-                                                {getTagNames(product.tags)}
+                                                {getTagNames()}
                                             </span>
                                         </div>
                                     )}
@@ -449,11 +461,6 @@ const ProductDetails = () => {
                                 {/* Variants */}
                                 {(() => {
                                     const populatedVariants = getPopulatedVariants
-
-                                    // Debug logging
-                                    console.log('Product variants:', product?.variants)
-                                    console.log('All variants:', allVariants)
-                                    console.log('Populated variants:', populatedVariants)
                                     
                                     // Prepare stock information for VariantSelector
                                     const stockInfo = {}
@@ -461,9 +468,17 @@ const ProductDetails = () => {
                                         stockInfo[variant._id] = {}
                                         variant.options?.forEach(option => {
                                             const skuForOption = product.skus?.find(sku => 
-                                                sku.attributes?.some(attr => 
-                                                    attr.variantId === variant._id && attr.optionId === option._id
-                                                )
+                                                sku.attributes?.some(attr => {
+                                                    // Backend populates variantId and optionId as objects or IDs
+                                                    const attrVariantId = typeof attr.variantId === 'object' 
+                                                        ? attr.variantId._id || attr.variantId 
+                                                        : attr.variantId
+                                                    const attrOptionId = typeof attr.optionId === 'object' 
+                                                        ? attr.optionId._id || attr.optionId 
+                                                        : attr.optionId
+                                                    return attrVariantId?.toString() === variant._id?.toString() && 
+                                                           attrOptionId?.toString() === option._id?.toString()
+                                                })
                                             )
                                             stockInfo[variant._id][option._id] = skuForOption?.stock || 0
                                         })
@@ -536,35 +551,48 @@ const ProductDetails = () => {
                                                     </div>
                                                 )}
                                                 
-                                                {/* Stock Information for Each Variant Option */}
-                                                {Object.keys(selectedVariants).length > 0 && (
-                                                    <div className="mt-4 pt-4 border-t border-gray-200">
-                                                        <h4 className="text-sm font-medium text-gray-700 mb-2">Stock by Option:</h4>
-                                                        <div className="space-y-1 text-sm text-gray-600">
-                                                            {populatedVariants.map(variant =>
-                                                                variant.options?.map(option => {
-                                                                    // Find SKU for this option
-                                                                    const skuForOption = product.skus?.find(sku =>
-                                                                        sku.attributes?.some(attr =>
-                                                                            attr.variantId === variant._id && attr.optionId === option._id
-                                                                        )
-                                                                    )
-                                                                    const stockCount = skuForOption?.stock || 0
-                                                                    const isSelected = selectedVariants[variant._id] === option._id
+                                {/* Stock Information for Each Variant Option - Only show selected options from selectedVariantOptions */}
+                                {Object.keys(selectedVariants).length > 0 && product?.selectedVariantOptions && (
+                                    <div className="mt-4 pt-4 border-t border-gray-200">
+                                        <h4 className="text-sm font-medium text-gray-700 mb-2">Stock by Option:</h4>
+                                        <div className="space-y-1 text-sm text-gray-600">
+                                            {product.selectedVariantOptions.map(sel => {
+                                                const variantName = sel.variantId?.name || 'Variant'
+                                                // Only show options that are in optionIds (selected options)
+                                                if (!Array.isArray(sel.optionIds) || sel.optionIds.length === 0) return null
+                                                
+                                                return sel.optionIds.map(option => {
+                                                    if (typeof option !== 'object' || !option._id) return null
+                                                    
+                                                    // Find SKU for this option
+                                                    const skuForOption = product.skus?.find(sku =>
+                                                        sku.attributes?.some(attr => {
+                                                            const attrVariantId = typeof attr.variantId === 'object' 
+                                                                ? attr.variantId._id || attr.variantId 
+                                                                : attr.variantId
+                                                            const attrOptionId = typeof attr.optionId === 'object' 
+                                                                ? attr.optionId._id || attr.optionId 
+                                                                : attr.optionId
+                                                            return attrVariantId?.toString() === sel.variantId?._id?.toString() && 
+                                                                   attrOptionId?.toString() === option._id?.toString()
+                                                        })
+                                                    )
+                                                    const stockCount = skuForOption?.stock || 0
+                                                    const isSelected = selectedVariants[sel.variantId?._id] === option._id
 
-                                                                    return (
-                                                                        <div key={option._id} className={`flex justify-between ${isSelected ? 'font-semibold text-gray-900' : ''}`}>
-                                                                            <span>{variant.name} {option.value}:</span>
-                                                                            <span className={stockCount > 0 ? 'text-green-600' : 'text-red-600'}>
-                                                                                {stockCount} in stock
-                                                                            </span>
-                                                                        </div>
-                                                                    )
-                                                                })
-                                                            )}
+                                                    return (
+                                                        <div key={option._id} className={`flex justify-between ${isSelected ? 'font-semibold text-gray-900' : ''}`}>
+                                                            <span>{variantName} {option.value}:</span>
+                                                            <span className={stockCount > 0 ? 'text-green-600' : 'text-red-600'}>
+                                                                {stockCount} in stock
+                                                            </span>
                                                         </div>
-                                                    </div>
-                                                )}
+                                                    )
+                                                })
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                                             </div>
                                         )
                                     } else {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiSearch, FiFilter, FiX, FiEdit2, FiTrash2, FiEye, FiCheck, FiX as FiXIcon } from 'react-icons/fi'
+import { FiSearch, FiFilter, FiX, FiEdit2, FiTrash2, FiEye, FiCheck, FiX as FiXIcon, FiAlertTriangle, FiStar } from 'react-icons/fi'
 import { useGetAllReviews, useDeleteReview, useApproveReview } from '../../hooks/useReviews'
 import Pagination from '../../components/common/Pagination'
 import StatusBadge from '../../components/common/StatusBadge'
@@ -125,17 +125,8 @@ const Reviews = () => {
         }
     }
 
-    // Loading skeleton
-    const LoadingSkeleton = () => (
-        <div className="animate-pulse">
-            <div className="h-10 bg-gray-200 rounded mb-4"></div>
-            <div className="space-y-3">
-                {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="h-16 bg-gray-200 rounded"></div>
-                ))}
-            </div>
-        </div>
-    )
+    // Get error message from API response
+    const errorMessage = error?.response?.data?.message || 'Failed to load reviews.'
 
     return (
         <div className="p-6">
@@ -258,217 +249,250 @@ const Reviews = () => {
             )}
 
             {/* Reviews Table */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                {isLoading ? (
-                    <div className="p-6">
-                        <LoadingSkeleton />
-                    </div>
-                ) : error ? (
-                    <div className="p-6 text-center">
-                        <p className="text-red-600">Failed to load reviews. Please try again.</p>
-                    </div>
-                ) : (
-                    <>
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gray-50 border-b border-gray-200">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedReviews.length === reviews.length && reviews.length > 0}
-                                                onChange={handleSelectAll}
-                                                className="rounded border-gray-300 text-primary focus:ring-primary"
-                                            />
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Review
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Product
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            User
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Rating
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Status
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Date
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Actions
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {reviews.length === 0 ? (
-                                        <tr>
-                                            <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
-                                                <div className="flex flex-col items-center">
-                                                    <FiSearch className="h-12 w-12 text-gray-300 mb-4" />
-                                                    <p className="text-lg font-medium">No reviews found</p>
-                                                    <p className="text-sm">Try adjusting your search or filters</p>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        reviews.map((review) => (
-                                            <tr key={review._id} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedReviews.includes(review._id)}
-                                                        onChange={() => handleSelectReview(review._id)}
-                                                        className="rounded border-gray-300 text-primary focus:ring-primary"
-                                                    />
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="max-w-xs">
-                                                        <p className="text-sm text-gray-900 font-medium truncate">
-                                                            {review.comment}
-                                                        </p>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm text-gray-900">
-                                                        {review.product?.title || 'Product Name'}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center">
-                                                        <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
-                                                            {review.user?.avatar ? (
-                                                                <img
-                                                                    src={review.user.avatar}
-                                                                    alt={review.user.name}
-                                                                    className="h-8 w-8 rounded-full object-cover"
-                                                                />
-                                                            ) : (
-                                                                <span className="text-xs text-gray-500">
-                                                                    {review.user?.name?.charAt(0) || 'U'}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                        <div className="ml-3">
-                                                            <div className="text-sm font-medium text-gray-900">
-                                                                {review.user?.name || 'Unknown User'}
-                                                            </div>
-                                                            <div className="text-sm text-gray-500">
-                                                                {review.user?.email || 'No email'}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center">
-                                                        <span className="text-sm text-gray-900 mr-2">
-                                                            {review.rating}
-                                                        </span>
-                                                        <div className="flex">
-                                                            {[1, 2, 3, 4, 5].map((star) => (
-                                                                <span
-                                                                    key={star}
-                                                                    className={`text-sm ${
-                                                                        star <= review.rating
-                                                                            ? 'text-orange-400'
-                                                                            : 'text-gray-300'
-                                                                    }`}
-                                                                >
-                                                                    ★
-                                                                </span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <StatusBadge 
-                                                        status={review.isApproved ? 'approved' : 'pending'} 
-                                                    />
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {new Date(review.createdAt).toLocaleDateString()}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={() => navigate(`/reviews/${review._id}`)}
-                                                            className="text-blue-600 hover:text-blue-900 transition-colors"
-                                                            title="View Review"
-                                                        >
-                                                            <FiEye className="h-4 w-4" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => navigate(`/reviews/${review._id}/edit`)}
-                                                            className="text-gray-600 hover:text-gray-900 transition-colors"
-                                                            title="Edit Review"
-                                                        >
-                                                            <FiEdit2 className="h-4 w-4" />
-                                                        </button>
-                                                        {!review.isApproved && (
-                                                            <button
-                                                                onClick={() => setApproveModal({
-                                                                    show: true,
-                                                                    reviewId: review._id,
-                                                                    isApproved: true
-                                                                })}
-                                                                className="text-green-600 hover:text-green-900 transition-colors"
-                                                                title="Approve Review"
-                                                            >
-                                                                <FiCheck className="h-4 w-4" />
-                                                            </button>
-                                                        )}
-                                                        {review.isApproved && (
-                                                            <button
-                                                                onClick={() => setApproveModal({
-                                                                    show: true,
-                                                                    reviewId: review._id,
-                                                                    isApproved: false
-                                                                })}
-                                                                className="text-yellow-600 hover:text-yellow-900 transition-colors"
-                                                                title="Reject Review"
-                                                            >
-                                                                <FiXIcon className="h-4 w-4" />
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => setDeleteModal({
-                                                                show: true,
-                                                                reviewId: review._id
-                                                            })}
-                                                            className="text-red-600 hover:text-red-900 transition-colors"
-                                                            title="Delete Review"
-                                                        >
-                                                            <FiTrash2 className="h-4 w-4" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Pagination */}
-                        {pagination && pagination.totalPages > 1 && (
-                            <div className="px-6 py-4 border-t border-gray-200">
-                                <Pagination
-                                    currentPage={pagination.currentPage}
-                                    totalPages={pagination.totalPages}
-                                    onPageChange={setCurrentPage}
-                                    totalItems={pagination.totalReviews}
-                                    pageSize={10}
-                                    currentPageCount={reviews.length}
+            <div className="table-container">
+                <table className="table">
+                    {/* Table header */}
+                    <thead className="table-header">
+                        <tr>
+                            <th className="table-header-cell">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedReviews.length === reviews.length && reviews.length > 0}
+                                    onChange={handleSelectAll}
+                                    className="rounded border-gray-300 text-primary focus:ring-primary"
                                 />
-                            </div>
+                            </th>
+                            <th className="table-header-cell">Review</th>
+                            <th className="table-header-cell">Product</th>
+                            <th className="table-header-cell">User</th>
+                            <th className="table-header-cell">Rating</th>
+                            <th className="table-header-cell">Status</th>
+                            <th className="table-header-cell">Date</th>
+                            <th className="table-header-cell-right">Actions</th>
+                        </tr>
+                    </thead>
+
+                    {/* Table body */}
+                    <tbody className="table-body">
+                        {/* Loading state: skeleton rows */}
+                        {isLoading && (
+                            <>
+                                {[...Array(5)].map((_, index) => (
+                                    <tr key={`skeleton-${index}`}>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-4 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-48 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-32 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="table-cell-content">
+                                                <div className="h-8 w-8 animate-pulse rounded-full bg-gray-300" />
+                                                <div className="h-4 w-24 animate-pulse rounded bg-gray-300" />
+                                            </div>
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-16 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-6 w-16 animate-pulse rounded-full bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="h-4 w-20 animate-pulse rounded bg-gray-300" />
+                                        </td>
+                                        <td className="table-cell">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                                <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </>
                         )}
-                    </>
-                )}
+
+                        {/* Error state */}
+                        {error && !isLoading && (
+                            <tr>
+                                <td colSpan={8} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiAlertTriangle className="text-red-500" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">{errorMessage}</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+
+                        {/* Empty state */}
+                        {!isLoading && !error && reviews.length === 0 && (
+                            <tr>
+                                <td colSpan={8} className="table-cell-center py-12">
+                                    <div className="flex flex-col items-center justify-center gap-3">
+                                        <FiStar className="text-gray-400" size={48} />
+                                        <p className="text-sm font-medium text-gray-700">No reviews found.</p>
+                                        {searchTerm || statusFilter !== 'all' || ratingFilter !== 'all' ? (
+                                            <p className="mt-2 text-sm text-gray-400">
+                                                Try adjusting your search or filters.
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                </td>
+                            </tr>
+                        )}
+
+                        {/* Review rows */}
+                        {!isLoading &&
+                            !error &&
+                            reviews.map((review) => (
+                                <tr key={review._id} className="table-row">
+                                    <td className="table-cell">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedReviews.includes(review._id)}
+                                            onChange={() => handleSelectReview(review._id)}
+                                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                                        />
+                                    </td>
+                                    <td className="table-cell">
+                                        <div className="max-w-xs">
+                                            <p className="text-sm text-gray-900 font-medium truncate">
+                                                {review.comment}
+                                            </p>
+                                        </div>
+                                    </td>
+                                    <td className="table-cell-text">
+                                        {review.product?.title || 'Product Name'}
+                                    </td>
+                                    <td className="table-cell">
+                                        <div className="table-cell-content">
+                                            {review.user?.avatar ? (
+                                                <img
+                                                    src={review.user.avatar}
+                                                    alt={review.user.name}
+                                                    className="table-avatar"
+                                                />
+                                            ) : (
+                                                <div className="table-avatar-initials">
+                                                    {review.user?.name?.charAt(0) || 'U'}
+                                                </div>
+                                            )}
+                                            <div>
+                                                <div className="text-sm font-medium text-gray-900">
+                                                    {review.user?.name || 'Unknown User'}
+                                                </div>
+                                                <div className="text-sm text-gray-500">
+                                                    {review.user?.email || 'No email'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="table-cell">
+                                        <div className="flex items-center">
+                                            <span className="text-sm text-gray-900 mr-2">
+                                                {review.rating}
+                                            </span>
+                                            <div className="flex">
+                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                    <span
+                                                        key={star}
+                                                        className={`text-sm ${
+                                                            star <= review.rating
+                                                                ? 'text-orange-400'
+                                                                : 'text-gray-300'
+                                                        }`}
+                                                    >
+                                                        ★
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="table-cell">
+                                        <StatusBadge 
+                                            status={review.isApproved ? 'approved' : 'pending'} 
+                                            type="review-status"
+                                        />
+                                    </td>
+                                    <td className="table-cell-text">
+                                        {new Date(review.createdAt).toLocaleDateString()}
+                                    </td>
+                                    <td className="table-cell">
+                                        <div className="flex items-center justify-end gap-2">
+                                            <button
+                                                onClick={() => navigate(`/reviews/${review._id}`)}
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-blue-600 transition hover:bg-blue-50"
+                                                title="View Review"
+                                            >
+                                                <FiEye className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => navigate(`/reviews/${review._id}/edit`)}
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-primary transition hover:bg-primary/10"
+                                                title="Edit Review"
+                                            >
+                                                <FiEdit2 className="h-4 w-4" />
+                                            </button>
+                                            {!review.isApproved && (
+                                                <button
+                                                    onClick={() => setApproveModal({
+                                                        show: true,
+                                                        reviewId: review._id,
+                                                        isApproved: true
+                                                    })}
+                                                    className="flex items-center justify-center rounded-lg bg-white p-2 text-green-600 transition hover:bg-green-50"
+                                                    title="Approve Review"
+                                                >
+                                                    <FiCheck className="h-4 w-4" />
+                                                </button>
+                                            )}
+                                            {review.isApproved && (
+                                                <button
+                                                    onClick={() => setApproveModal({
+                                                        show: true,
+                                                        reviewId: review._id,
+                                                        isApproved: false
+                                                    })}
+                                                    className="flex items-center justify-center rounded-lg bg-white p-2 text-yellow-600 transition hover:bg-yellow-50"
+                                                    title="Reject Review"
+                                                >
+                                                    <FiXIcon className="h-4 w-4" />
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => setDeleteModal({
+                                                    show: true,
+                                                    reviewId: review._id
+                                                })}
+                                                className="flex items-center justify-center rounded-lg bg-white p-2 text-red-600 transition hover:bg-red-50"
+                                                title="Delete Review"
+                                            >
+                                                <FiTrash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                    </tbody>
+                </table>
             </div>
+
+            {/* Pagination - separate from table container */}
+            {!isLoading && !error && pagination && pagination.totalPages > 1 && (
+                <div className="mt-4">
+                    <Pagination
+                        currentPage={pagination.currentPage}
+                        totalPages={pagination.totalPages}
+                        onPageChange={setCurrentPage}
+                        totalItems={pagination.totalReviews}
+                        pageSize={10}
+                        currentPageCount={reviews.length}
+                    />
+                </div>
+            )}
 
             {/* Delete Confirmation Modal */}
             {deleteModal.show && (

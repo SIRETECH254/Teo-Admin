@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { categoryAPI } from '../utils/api'
+import { categoryAPI } from '../api'
 
 
 // React Query hooks

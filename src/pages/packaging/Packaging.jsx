@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiStar, FiCheckCircle, FiXCircle, FiFilter, FiList, FiX } from 'react-icons/fi'
+import { FiPlus, FiSearch, FiTrash2, FiEdit2, FiStar, FiCheckCircle, FiXCircle, FiFilter, FiList, FiX, FiAlertTriangle, FiPackage } from 'react-icons/fi'
 import { useGetPackaging, useDeletePackaging, useSetDefaultPackaging } from '../../hooks/usePackaging'
 import Pagination from '../../components/common/Pagination'
+import StatusBadge from '../../components/common/StatusBadge'
 
 
 const Packaging = () => {
@@ -32,7 +33,10 @@ const Packaging = () => {
     sort: 'createdAt:desc'
   }), [page, itemsPerPage, debouncedSearch, active, isDefault])
 
-  const { data, isLoading } = useGetPackaging(params)
+  const { data, isLoading, isError, error } = useGetPackaging(params)
+  
+  // Get error message from API response
+  const errorMessage = error?.response?.data?.message || 'Failed to load packaging options.'
   const delMutation = useDeletePackaging()
   const setDefaultMutation = useSetDefaultPackaging()
 
@@ -171,88 +175,142 @@ const Packaging = () => {
         </div>
       </header>
 
-      {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Default</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {isLoading ? (
-                [...Array(5)].map((_, idx) => (
-                  <tr key={idx} className="animate-pulse">
-                    <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-4" /></td>
-                    <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-40" /></td>
-                    <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-20" /></td>
-                    <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-16" /></td>
-                    <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-16" /></td>
-                    <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-16" /></td>
-                  </tr>
-                ))
-              ) : list.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="px-4 py-12 text-center text-gray-500">
-                    No packaging options. Create one to get started.
-                  </td>
-                </tr>
-              ) : (
-                list.map((row) => (
-                  <tr key={row._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <input type="checkbox" checked={selectedIds.includes(row._id)} onChange={() => toggleSelect(row._id)} />
+      {/* Packaging Table */}
+      <div className="table-container">
+        <table className="table">
+          {/* Table header */}
+          <thead className="table-header">
+            <tr>
+              <th className="table-header-cell">
+                <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} className="rounded border-gray-300 text-primary focus:ring-primary" />
+              </th>
+              <th className="table-header-cell">Name</th>
+              <th className="table-header-cell">Price</th>
+              <th className="table-header-cell">Status</th>
+              <th className="table-header-cell">Default</th>
+              <th className="table-header-cell-right">Actions</th>
+            </tr>
+          </thead>
+
+          {/* Table body */}
+          <tbody className="table-body">
+            {/* Loading state: skeleton rows */}
+            {isLoading && (
+              <>
+                {[...Array(5)].map((_, index) => (
+                  <tr key={`skeleton-${index}`}>
+                    <td className="table-cell">
+                      <div className="h-4 w-4 animate-pulse rounded bg-gray-300" />
                     </td>
-                    <td className="px-4 py-3 font-medium text-gray-900">{row.name}</td>
-                    <td className="px-4 py-3">KSh {Number(row.price).toFixed(2)}</td>
-                    <td className="px-4 py-3">
-                      {row.isActive ? (
-                        <span className="inline-flex items-center text-green-700 bg-green-100 rounded-full px-2 py-0.5 text-xs font-medium"><FiCheckCircle className="mr-1" /> Active</span>
-                      ) : (
-                        <span className="inline-flex items-center text-gray-700 bg-gray-100 rounded-full px-2 py-0.5 text-xs font-medium"><FiXCircle className="mr-1" /> Inactive</span>
-                      )}
+                    <td className="table-cell">
+                      <div className="h-4 w-40 animate-pulse rounded bg-gray-300" />
                     </td>
-                    <td className="px-4 py-3">
-                      {row.isDefault ? (
-                        <span className="inline-flex items-center text-purple-700 bg-purple-100 rounded-full px-2 py-0.5 text-xs font-medium"><FiStar className="mr-1" /> Standard</span>
-                      ) : (
-                        <button onClick={() => setDefaultMutation.mutate(row._id)} className="text-primary hover:underline text-sm">Set as standard</button>
-                      )}
+                    <td className="table-cell">
+                      <div className="h-4 w-20 animate-pulse rounded bg-gray-300" />
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2 justify-end">
-                        <button onClick={() => navigate(`/packaging/${row._id}/edit`)} className="text-gray-600 hover:text-gray-900"><FiEdit2 /></button>
-                        <button onClick={() => { setSelectedIds([row._id]); setConfirmDelete(true) }} className="text-red-600 hover:text-red-700"><FiTrash2 /></button>
+                    <td className="table-cell">
+                      <div className="h-6 w-16 animate-pulse rounded-full bg-gray-300" />
+                    </td>
+                    <td className="table-cell">
+                      <div className="h-6 w-20 animate-pulse rounded-full bg-gray-300" />
+                    </td>
+                    <td className="table-cell">
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
+                        <div className="h-8 w-8 animate-pulse rounded-lg bg-gray-300" />
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </>
+            )}
 
-        <div className="p-3 border-t flex items-center justify-end">
-          {pagination && (
-            <Pagination
-              currentPage={pagination.currentPage || page}
-              totalPages={pagination.totalPages || Math.max(1, Math.ceil((totalItems || 0) / (itemsPerPage || 1)))}
-              onPageChange={setPage}
-              totalItems={totalItems}
-              pageSize={itemsPerPage}
-              currentPageCount={list.length}
-            />
-          )}
-        </div>
+            {/* Error state */}
+            {isError && !isLoading && (
+              <tr>
+                <td colSpan={6} className="table-cell-center py-12">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <FiAlertTriangle className="text-red-500" size={48} />
+                    <p className="text-sm font-medium text-gray-700">{errorMessage}</p>
+                  </div>
+                </td>
+              </tr>
+            )}
+
+            {/* Empty state */}
+            {!isLoading && !isError && list.length === 0 && (
+              <tr>
+                <td colSpan={6} className="table-cell-center py-12">
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <FiPackage className="text-gray-400" size={48} />
+                    <p className="text-sm font-medium text-gray-700">No packaging options found.</p>
+                    {debouncedSearch || active !== 'all' || isDefault !== 'all' ? (
+                      <p className="mt-2 text-sm text-gray-400">
+                        Try adjusting your search or filters.
+                      </p>
+                    ) : null}
+                  </div>
+                </td>
+              </tr>
+            )}
+
+            {/* Packaging rows */}
+            {!isLoading &&
+              !isError &&
+              list.map((row) => (
+                <tr key={row._id} className="table-row">
+                  <td className="table-cell">
+                    <input type="checkbox" checked={selectedIds.includes(row._id)} onChange={() => toggleSelect(row._id)} className="rounded border-gray-300 text-primary focus:ring-primary" />
+                  </td>
+                  <td className="table-cell-text font-medium text-gray-900">{row.name}</td>
+                  <td className="table-cell-text">KSh {Number(row.price).toFixed(2)}</td>
+                  <td className="table-cell">
+                    <StatusBadge status={row.isActive ? 'active' : 'inactive'} type="packaging-status" />
+                  </td>
+                  <td className="table-cell">
+                    {row.isDefault ? (
+                      <StatusBadge status="default" type="packaging-status" />
+                    ) : (
+                      <button onClick={() => setDefaultMutation.mutate(row._id)} className="text-primary hover:underline text-sm">Set as standard</button>
+                    )}
+                  </td>
+                  <td className="table-cell">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => navigate(`/packaging/${row._id}/edit`)}
+                        className="flex items-center justify-center rounded-lg bg-white p-2 text-primary transition hover:bg-primary/10"
+                        title="Edit packaging"
+                      >
+                        <FiEdit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => { setSelectedIds([row._id]); setConfirmDelete(true) }}
+                        className="flex items-center justify-center rounded-lg bg-white p-2 text-red-600 transition hover:bg-red-50"
+                        title="Delete packaging"
+                      >
+                        <FiTrash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
       </div>
+
+      {/* Pagination - separate from table container */}
+      {!isLoading && !isError && pagination && (
+        <div className="mt-4">
+          <Pagination
+            currentPage={pagination.currentPage || page}
+            totalPages={pagination.totalPages || Math.max(1, Math.ceil((totalItems || 0) / (itemsPerPage || 1)))}
+            onPageChange={setPage}
+            totalItems={totalItems}
+            pageSize={itemsPerPage}
+            currentPageCount={list.length}
+          />
+        </div>
+      )}
 
       {/* Delete confirm */}
       {confirmDelete && (

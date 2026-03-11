@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { collectionAPI } from '../utils/api'
+import { collectionAPI } from '../api'
 
 
 export const useCreateCollection = () => {

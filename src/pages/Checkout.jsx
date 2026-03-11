@@ -1,10 +1,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { cartAPI, orderAPI, paymentAPI } from '../utils/api'
+import { useQueryClient } from '@tanstack/react-query'
 import { useGetActivePackagingPublic } from '../hooks/usePackaging'
+import { useGetCart } from '../hooks/useCart'
+import { useCreateOrder } from '../hooks/useOrders'
+import { usePayInvoice } from '../hooks/usePayments'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
-import { FiEdit2, FiShoppingBag, FiClock, FiCreditCard, FiList } from 'react-icons/fi'
+import {
+  FiEdit2,
+  FiShoppingBag,
+  FiClock,
+  FiCreditCard,
+  FiList,
+  FiCheckCircle,
+  FiHome,
+  FiMapPin,
+  FiTruck,
+  FiPackage,
+  FiDollarSign,
+  FiSmartphone,
+  FiArrowLeft,
+  FiArrowRight,
+  FiInfo,
+  FiCheck,
+  FiLoader,
+} from 'react-icons/fi'
 
 
 const ALL_STEPS = [
@@ -18,57 +39,16 @@ const ALL_STEPS = [
 ]
 
 
-const ProgressBar = ({ currentStep, totalSteps }) => {
-  return (
-    <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
-      <div 
-        className="bg-primary h-2 rounded-full transition-all duration-300"
-        style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
-      ></div>
-    </div>
-  )
-}
-
-
-
-
-const CheckmarksRow = ({ current, steps }) => {
-  return (
-    <div className="flex items-center justify-between gap-2 mb-4">
-      {steps.map((_, idx) => (
-        <div key={idx} className="flex items-center">
-          <div className={` w-5 h-5 sm:w-8 sm:h-8 text-xs sm:text-sm md:text-base  font-semibold rounded-full flex items-center justify-center ${
-            idx < current 
-              ? 'bg-primary text-white' 
-              : 'bg-light text-gray-500'
-          }`}>
-            {idx < current ? (
-              <svg className="w-3 h-3 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            ) : (
-              idx + 1
-            )}
-          </div>
-          {idx < steps.length - 1 && (
-            <div className={`sm:w-12 h-0.5 mx-2 ${
-              idx < current ? 'bg-primary' : 'bg-gray-200'
-            }`}/>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-
 const Checkout = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
 
+  const queryClient = useQueryClient()
   const [currentStep, setCurrentStep] = useState(0)
-  const [cart, setCart] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const { data: cartData, isLoading: loading } = useGetCart()
+  const cart = cartData?.data
+  const createOrderMutation = useCreateOrder()
+  const payInvoice = usePayInvoice()
   const [creating, setCreating] = useState(false)
   const [paying, setPaying] = useState(false)
 
@@ -109,47 +89,41 @@ const Checkout = () => {
     return digits
   }
 
-  const [payerPhone, setPayerPhone] = useState('')
-  const [payerEmail, setPayerEmail] = useState('')
-
-  const [orderId, setOrderId] = useState(null)
-  const [invoiceId, setInvoiceId] = useState(null)
-  const [receiptId, setReceiptId] = useState(null)
-
-  const canShowAddress = orderType === 'delivery'
-  const { data: packagingPublic } = useGetActivePackagingPublic()
-  const packagingOptions = packagingPublic?.data?.data?.packaging || packagingPublic?.data?.packaging || []
-  const canShowPackaging = (packagingOptions || []).length > 0
-
-  const [selectedPackagingId, setSelectedPackagingId] = useState(null)
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await cartAPI.getCart()
-        setCart(res.data?.data)
-        // If no items, clear persisted coupon
-        const items = res.data?.data?.items || []
-        if (!items || items.length === 0) {
-          try { localStorage.removeItem('appliedCoupon') } catch {}
-          setCoupon(null)
-        }
-      } catch (e) {
-        toast.error('Failed to load cart')
-      } finally {
-        setLoading(false)
+    const [payerPhone, setPayerPhone] = useState('')
+    const [payerEmail, setPayerEmail] = useState('')
+  
+    const [orderId, setOrderId] = useState(null)
+    const [invoiceId, setInvoiceId] = useState(null)
+  
+    const canShowAddress = orderType === 'delivery'
+    const { data: packagingPublic } = useGetActivePackagingPublic()
+    
+    // Memoize packaging options to stabilize dependencies
+    const packagingOptions = useMemo(() => 
+      packagingPublic?.data?.data?.packaging || packagingPublic?.data?.packaging || [],
+      [packagingPublic]
+    )
+    
+    const canShowPackaging = (packagingOptions || []).length > 0
+  
+    const [selectedPackagingId, setSelectedPackagingId] = useState(null)
+  
+    // Clear coupon if cart is empty
+    useEffect(() => {
+      const items = cart?.items || []
+      if (!items || items.length === 0) {
+        try { localStorage.removeItem('appliedCoupon') } catch (err) { console.error('Storage error:', err) }
+        setCoupon(null)
       }
-    }
-    load()
-  }, [])
+    }, [cart])
 
   // Cart protection - redirect to cart if empty
-  useEffect(() => {
-    if (cart && (!cart.items || cart.items.length === 0)) {
-      //toast.error('Your cart is empty')
-      navigate('/cart')
-    }
-  }, [cart, navigate])
+  // useEffect(() => {
+  //   if (cart && (!cart.items || cart.items.length === 0)) {
+  //     //toast.error('Your cart is empty')
+  //     navigate('/cart')
+  //   }
+  // }, [cart, navigate])
 
   // Prefill user phone and email
   useEffect(() => {
@@ -200,6 +174,78 @@ const Checkout = () => {
 
   const currentStepKey = activeSteps[currentStep]?.key
 
+  /**
+   * Render Step Indicator Header - Same approach as AddProduct page
+   */
+  const renderStepHeader = () => {
+    const progress = ((currentStep + 1) / activeSteps.length) * 100
+    
+    return (
+      <div className="space-y-4 p-3">
+        <div className="flex-row items-center justify-between flex">
+          {/* current step & label */}
+          <div className="flex-row items-center gap-x-2 flex">
+            <div className="h-5 w-5 rounded-full items-center justify-center bg-primary text-white text-xs font-bold flex">
+              {currentStep + 1}
+            </div>
+            <span className="text-sm font-semibold text-primary">
+              {activeSteps[currentStep]?.label}
+            </span>
+          </div>
+       
+          {/* Step numbers and labels */}
+          <div className="flex-row items-center gap-x-2 md:gap-x-4 lg:gap-x-6 flex">
+            {activeSteps.map((step, index) => {
+              const stepNumber = index + 1
+              const isActive = index === currentStep
+              const isCompleted = currentStep > index
+              
+              return (
+                <button
+                  key={step.key}
+                  onClick={() => setCurrentStep(index)}
+                  className="flex-1 items-center flex flex-col"
+                  type="button"
+                >
+                  <div className="items-center flex flex-col">
+                    {/* Step number circle */}
+                    <div className={`h-6 w-6 rounded-full items-center justify-center flex ${
+                      isActive 
+                        ? 'bg-primary' 
+                        : isCompleted 
+                          ? 'bg-primary/30' 
+                          : 'bg-gray-200'
+                    }`}>
+                      {isCompleted ? (
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <span className={`text-base font-bold ${
+                          isActive ? 'text-white' : 'text-gray-500'
+                        }`}>
+                          {stepNumber}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        
+        {/* Progress bar */}
+        <div className="h-2 bg-gray-100 rounded-full">
+          <div 
+            className="h-full bg-primary rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+    )
+  }
+
 
   const next = () => {
     setCurrentStep((s) => Math.min(s + 1, activeSteps.length - 1))
@@ -235,25 +281,12 @@ const Checkout = () => {
         metadata: {},
       }
 
-      const res = await orderAPI.createOrder(payload)
-      const createdOrderId = res.data?.data?.orderId
-      setOrderId(createdOrderId)
-
-      // fetch invoice
-      const orderDetail = await orderAPI.getOrderById(createdOrderId)
-      const inv = orderDetail.data?.data?.order?.invoiceId
-      const createdInvoiceId = inv?._id || inv
-      setInvoiceId(createdInvoiceId)
+      const res = await createOrderMutation.mutateAsync(payload)
+      const createdOrderId = res?.orderId
+      const createdInvoiceId = res?.invoiceId
       
-      // Refresh cart after successful order creation (items will be removed by backend)
-      try {
-        const cartRes = await cartAPI.getCart()
-        setCart(cartRes.data?.data)
-        console.log('✅ Cart refreshed after order creation')
-      } catch (cartError) {
-        console.warn('Failed to refresh cart:', cartError)
-        // Don't fail the order creation if cart refresh fails
-      }
+      setOrderId(createdOrderId)
+      setInvoiceId(createdInvoiceId)
       
       // Clear applied coupon from localStorage
       try {
@@ -279,10 +312,10 @@ const Checkout = () => {
       setPaying(true)
       if (paymentMethod === 'mpesa_stk') {
         if (!payerPhone) return toast.error('Phone required')
-        const res = await paymentAPI.payInvoice({ invoiceId: targetInvoiceId, method: 'mpesa_stk', payerPhone })
-        if (res.data?.success) {
-          const paymentId = res.data?.data?.paymentId
-          const checkoutRequestId = res.data?.data?.daraja?.checkoutRequestId
+        const res = await payInvoice.mutateAsync({ invoiceId: targetInvoiceId, method: 'mpesa_stk', payerPhone })
+        if (res?.success) {
+          const paymentId = res?.data?.paymentId
+          const checkoutRequestId = res?.data?.daraja?.checkoutRequestId
           
           // Navigate to payment status page with method parameter
           const params = new URLSearchParams({
@@ -300,9 +333,9 @@ const Checkout = () => {
         }
       } else if (paymentMethod === 'paystack_card') {
         if (!payerEmail) return toast.error('Email required')
-        const res = await paymentAPI.payInvoice({ invoiceId: targetInvoiceId, method: 'paystack_card', payerEmail })
-        const paymentId = res.data?.data?.paymentId
-        const reference = res.data?.data?.reference
+        const res = await payInvoice.mutateAsync({ invoiceId: targetInvoiceId, method: 'paystack_card', payerEmail })
+        const paymentId = res?.data?.paymentId
+        const reference = res?.data?.reference
         
         // Navigate to payment status page with method parameter
         const params = new URLSearchParams({
@@ -316,11 +349,12 @@ const Checkout = () => {
         })
         navigate(`/payment-status?${params.toString()}`)
         
-        const url = res.data?.data?.authorizationUrl
+        const url = res?.data?.authorizationUrl
         if (url) window.open(url, '_blank')
       }
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Failed to initiate payment')
+      throw e // Re-throw to handle in handleCompleteOrder
     } finally {
       setPaying(false)
     }
@@ -358,21 +392,9 @@ const Checkout = () => {
           console.warn('Failed to save checkout data:', e)
         }
 
-        const res = await orderAPI.createOrder(payload)
-        const createdOrderId = res.data?.data?.orderId
-        const orderDetail = await orderAPI.getOrderById(createdOrderId)
-        const inv = orderDetail.data?.data?.order?.invoiceId
-        const createdInvoiceId = inv?._id || inv
-        
-        // Refresh cart after successful order creation (backend clears cart items)
-        try {
-          const cartRes = await cartAPI.getCart()
-          setCart(cartRes.data?.data)
-          console.log('✅ Cart refreshed after order creation')
-        } catch (cartError) {
-          console.warn('Failed to refresh cart:', cartError)
-          // Don't fail the order creation if cart refresh fails
-        }
+        const res = await createOrderMutation.mutateAsync(payload)
+        const createdOrderId = res?.orderId
+        const createdInvoiceId = res?.invoiceId
         
         // Clear applied coupon from localStorage
         try {
@@ -406,19 +428,27 @@ const Checkout = () => {
 
     // Handle M-Pesa and Paystack (order creation first, then payment initiation)
     if (paymentMode === 'pay_now' && (paymentMethod === 'mpesa_stk' || paymentMethod === 'paystack_card')) {
-    let ensuredOrderId = orderId
-    let ensuredInvoiceId = invoiceId
+      let ensuredOrderId = orderId
+      let ensuredInvoiceId = invoiceId
 
-    if (!ensuredOrderId || !ensuredInvoiceId) {
-      const created = await createOrder()
-      ensuredOrderId = created?.orderId
-      ensuredInvoiceId = created?.invoiceId
-    }
+      try {
+        if (!ensuredOrderId || !ensuredInvoiceId) {
+          const created = await createOrder()
+          ensuredOrderId = created?.orderId
+          ensuredInvoiceId = created?.invoiceId
+        }
 
-    console.log('✅ handleCompleteOrder - Order IDs:', { ensuredOrderId, ensuredInvoiceId })
+        console.log('✅ handleCompleteOrder - Order IDs:', { ensuredOrderId, ensuredInvoiceId })
 
-      // Initiate payment
+        // Initiate payment
         await payInvoiceNow(ensuredInvoiceId, ensuredOrderId)
+      } catch (error) {
+        console.error('Checkout failed:', error)
+        // If order was created but payment failed, go to order details page
+        if (ensuredOrderId) {
+          navigate(`/orders/${ensuredOrderId}`)
+        }
+      }
     }
   }
 
@@ -433,19 +463,18 @@ const Checkout = () => {
   return (
     <div className="container py-6">
       <div className="max-w-4xl mx-auto">
-      <h1 className="title3">Checkout</h1>
-        <div className="flex items-center justify-between mb-6">
-        <h1 className="text-sm text-primary font-semibold">{activeSteps[currentStep]?.label}</h1>
-          <div className="text-xs text-gray-600">
+        {/* Title and Step indicator */}
+        <div className="flex flex-row items-center justify-between mb-6">
+          <h1 className="title3">Checkout</h1>
+          <span className="text-sm font-semibold text-primary mt-2 sm:mt-0">
             Step {currentStep + 1} of {activeSteps.length}
-          </div>
+          </span>
         </div>
-
-        {/* Progress Bar */}
-        <ProgressBar currentStep={currentStep} totalSteps={activeSteps.length} />
-
-        {/* Checkmarks Row */}
-        <CheckmarksRow current={currentStep} steps={activeSteps} />
+        
+        {/* Step Header - Same approach as AddProduct page */}
+        <div className="mb-6">
+          {renderStepHeader()}
+        </div>
 
         {/* Step content */}
         <div className="">
@@ -453,42 +482,50 @@ const Checkout = () => {
           {currentStepKey === 'location' && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800">Where are you ordering from?</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-3">
                 <button 
-                  className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                  className={`relative p-4 rounded-lg border-2 transition-all duration-200 text-left ${
                     location === 'in_shop' 
                       ? 'border-primary bg-primary/5 text-primary' 
                       : 'border-gray-200 hover:border-gray-300'
                   }`} 
                   onClick={() => setLocation('in_shop')}
                 >
-                  <div className="flex  gap-x-5">
-                    <div className="text-2xl mb-2">🏪</div>
-
-                    <div className="flex flex-col items-start ">
-
-                    <div className="font-medium">In Shop</div>
-                    <div className="text-sm text-gray-500">Ordering while in the store</div>
-
+                  {location === 'in_shop' && (
+                    <FiCheckCircle className="absolute top-3 right-3 h-4 w-4 text-primary" />
+                  )}
+                  <div className="flex gap-x-4">
+                    <div className={`text-2xl mb-2 ${location === 'in_shop' ? 'text-primary' : 'text-gray-500'}`}>
+                      <FiMapPin />
+                    </div>
+                    <div className="flex flex-col items-start">
+                      <div className="font-medium">In Shop</div>
+                      <div className="text-sm text-gray-500">
+                        Ordering while you are inside the store
+                      </div>
                     </div>
                   </div>
                 </button>
                 <button 
-                  className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                  className={`relative p-4 rounded-lg border-2 transition-all duration-200 text-left ${
                     location === 'away' 
                       ? 'border-primary bg-primary/5 text-primary' 
                       : 'border-gray-200 hover:border-gray-300'
                   }`} 
                   onClick={() => setLocation('away')}
                 >
-                  <div className="flex  gap-x-5">
-                    <div className="text-2xl mb-2">🏠</div>
-                    <div className="flex flex-col items-start ">
-                    
-                    <div className="flex flex-col items-start ">
-                    <div className="font-medium">Away</div>
-                    <div className="text-sm text-gray-500">Ordering from home or office</div>
+                  {location === 'away' && (
+                    <FiCheckCircle className="absolute top-3 right-3 h-4 w-4 text-primary" />
+                  )}
+                  <div className="flex gap-x-4">
+                    <div className={`text-2xl mb-2 ${location === 'away' ? 'text-primary' : 'text-gray-500'}`}>
+                      <FiHome />
                     </div>
+                    <div className="flex flex-col items-start">
+                      <div className="font-medium">Away</div>
+                      <div className="text-sm text-gray-500">
+                        Ordering from home, office, or another location
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -500,37 +537,46 @@ const Checkout = () => {
           {currentStepKey === 'orderType' && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800">How would you like to receive your order?</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-3">
                 <button 
-                  className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                  className={`relative p-4 rounded-lg border-2 transition-all duration-200 text-left ${
                     orderType === 'pickup' 
                       ? 'border-primary bg-primary/5 text-primary' 
                       : 'border-gray-200 hover:border-gray-300'
                   }`} 
                   onClick={() => setOrderType('pickup')}
                 >
-                  <div className="flex i gap-x-5">
-                    <div className="text-2xl mb-2">📦</div>
-                    <div className="flex flex-col items-start ">
+                  {orderType === 'pickup' && (
+                    <FiCheckCircle className="absolute top-3 right-3 h-4 w-4 text-primary" />
+                  )}
+                  <div className="flex gap-x-4">
+                    <div className={`text-2xl mb-2 ${orderType === 'pickup' ? 'text-primary' : 'text-gray-500'}`}>
+                      <FiPackage />
+                    </div>
+                    <div className="flex flex-col items-start">
                       <div className="font-medium">Pickup</div>
-                      <div className="text-sm text-gray-500">Collect from store</div>
-                    
+                      <div className="text-sm text-gray-500">Collect your order from the store</div>
                     </div>
                   </div>
                 </button>
                 <button 
-                  className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                  className={`relative p-4 rounded-lg border-2 transition-all duration-200 text-left ${
                     orderType === 'delivery' 
                       ? 'border-primary bg-primary/5 text-primary' 
                       : 'border-gray-200 hover:border-gray-300'
                   }`} 
                   onClick={() => setOrderType('delivery')}
                 >
-                  <div className="flex  gap-x-5">
-                    <div className="text-2xl mb-2">🚚</div>
-                    <div className="flex flex-col items-start ">
+                  {orderType === 'delivery' && (
+                    <FiCheckCircle className="absolute top-3 right-3 h-4 w-4 text-primary" />
+                  )}
+                  <div className="flex gap-x-4">
+                    <div className={`text-2xl mb-2 ${orderType === 'delivery' ? 'text-primary' : 'text-gray-500'}`}>
+                      <FiTruck />
+                    </div>
+                    <div className="flex flex-col items-start">
                       <div className="font-medium">Delivery</div>
-                      <div className="text-sm text-gray-500">Delivered to your address</div>
+                      <div className="text-sm text-gray-500">Have your order delivered to you</div>
                     </div>
                   </div>
                 </button>
@@ -627,9 +673,7 @@ const Checkout = () => {
               ) : (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center gap-2 text-gray-600">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                    </svg>
+                    <FiInfo className="w-5 h-5" />
                     <span className="font-medium">Pickup Selected</span>
                   </div>
                   <p className="text-sm text-gray-500 mt-1">No delivery address required for pickup orders.</p>
@@ -644,122 +688,149 @@ const Checkout = () => {
               <h3 className="text-lg font-semibold text-gray-800">Payment Method</h3>
               
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-3">
                   <button 
-                    className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                    className={`relative p-4 rounded-lg border-2 transition-all duration-200 text-left ${
                       paymentMode === 'post_to_bill' 
                         ? 'border-primary bg-primary/5 text-primary' 
                         : 'border-gray-200 hover:border-gray-300'
                     }`} 
                     onClick={() => setPaymentMode('post_to_bill')}
                   >
-                    <div className="flex  gap-x-5">
-                      <div className="text-2xl mb-2">📋</div>
-                      <div className="flex flex-col items-start ">
-                      <div className="font-medium">Post to Bill</div>
-                      <div className="text-sm text-gray-500">Pay later</div>
+                    {paymentMode === 'post_to_bill' && (
+                      <FiCheckCircle className="absolute top-3 right-3 h-4 w-4 text-primary" />
+                    )}
+                    <div className="flex gap-x-4">
+                      <div className={`text-2xl mb-2 ${paymentMode === 'post_to_bill' ? 'text-primary' : 'text-gray-500'}`}>
+                        <FiList />
+                      </div>
+                      <div className="flex flex-col items-start">
+                        <div className="font-medium">Post to Bill</div>
+                        <div className="text-sm text-gray-500">Add to your bill and pay later</div>
                       </div>
                     </div>
                   </button>
                   
                   <button 
-                    className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                    className={`relative p-4 rounded-lg border-2 transition-all duration-200 text-left ${
                       paymentMode === 'pay_now' 
                         ? 'border-primary bg-primary/5 text-primary' 
                         : 'border-gray-200 hover:border-gray-300'
                     }`} 
                     onClick={() => setPaymentMode('pay_now')}
                   >
-                    <div className="flex  gap-x-5">
-                      <div className="text-2xl mb-2">💳</div>
-                      <div className="flex flex-col items-start ">
-                      <div className="font-medium">Pay Now</div>
-                      <div className="text-sm text-gray-500">Pay immediately</div>
-                     </div>
+                    {paymentMode === 'pay_now' && (
+                      <FiCheckCircle className="absolute top-3 right-3 h-4 w-4 text-primary" />
+                    )}
+                    <div className="flex gap-x-4">
+                      <div className={`text-2xl mb-2 ${paymentMode === 'pay_now' ? 'text-primary' : 'text-gray-500'}`}>
+                        <FiCreditCard />
+                      </div>
+                      <div className="flex flex-col items-start">
+                        <div className="font-medium">Pay Now</div>
+                        <div className="text-sm text-gray-500">Complete payment immediately</div>
+                      </div>
                     </div>
-
                   </button>
                 </div>
 
                 {paymentMode === 'pay_now' && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <h4 className="font-medium text-blue-800 mb-3">Choose Payment Method</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-3">
                       <button 
-                        className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                        className={`relative w-full text-left p-3 rounded-lg border-2 transition-all duration-200 ${
                           paymentMethod === 'cash' 
                             ? 'border-green-500 bg-green-50 text-green-700' 
                             : 'border-gray-200 hover:border-gray-300'
                         }`} 
                         onClick={() => setPaymentMethod('cash')}
                       >
-                        <div className="flex  gap-x-5">
-                          <div className="text-2xl mb-2">💵</div>
-                          <div className="flex flex-col items-start ">
+                        {paymentMethod === 'cash' && (
+                          <FiCheckCircle className="absolute top-3 right-3 h-4 w-4 text-green-600" />
+                        )}
+                        <div className="flex gap-x-4">
+                          <div className={`text-2xl mb-2 ${paymentMethod === 'cash' ? 'text-green-600' : 'text-gray-500'}`}>
+                            <FiDollarSign />
+                          </div>
+                          <div className="flex flex-col items-start">
                             <div className="font-medium">Cash</div>
-                            <div className="text-sm text-gray-500">Pay on delivery</div>
+                            <div className="text-sm text-gray-500">Pay cash on delivery or pickup</div>
                           </div>
                         </div>
+                        {paymentMethod === 'cash' && (
+                          <div className="mt-3 text-sm text-gray-600">
+                            You&apos;ll pay the rider or cashier when you receive your order.
+                          </div>
+                        )}
                       </button>
                       
                       <button 
-                        className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                        className={`relative w-full text-left p-3 rounded-lg border-2 transition-all duration-200 ${
                           paymentMethod === 'mpesa_stk' 
                             ? 'border-green-500 bg-green-50 text-green-700' 
                             : 'border-gray-200 hover:border-gray-300'
                         }`} 
                         onClick={() => setPaymentMethod('mpesa_stk')}
                       >
-                        <div className="flex  gap-x-5">
-                          <div className="text-2xl mb-2">📱</div>
-                          <div className="flex flex-col items-start ">
-                            <div className="font-medium">M-Pesa</div>
-                            <div className="text-sm text-gray-500">STK Push</div>
+                        {paymentMethod === 'mpesa_stk' && (
+                          <FiCheckCircle className="absolute top-3 right-3 h-4 w-4 text-green-600" />
+                        )}
+                        <div className="flex gap-x-4">
+                          <div className={`text-2xl mb-2 ${paymentMethod === 'mpesa_stk' ? 'text-green-600' : 'text-gray-500'}`}>
+                            <FiSmartphone />
+                          </div>
+                          <div className="flex flex-col items-start">
+                            <div className="font-medium">M-Pesa STK</div>
+                            <div className="text-sm text-gray-500">Prompt sent to your phone</div>
                           </div>
                         </div>
+                        {paymentMethod === 'mpesa_stk' && (
+                          <div className="mt-3">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                            <input 
+                              className="input w-full max-w-sm" 
+                              placeholder="2547XXXXXXXX" 
+                              value={payerPhone} 
+                              onChange={(e) => setPayerPhone(e.target.value)} 
+                            />
+                          </div>
+                        )}
                       </button>
                       
                       <button 
-                        className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                        className={`relative w-full text-left p-3 rounded-lg border-2 transition-all duration-200 ${
                           paymentMethod === 'paystack_card' 
                             ? 'border-blue-500 bg-blue-50 text-blue-700' 
                             : 'border-gray-200 hover:border-gray-300'
                         }`} 
                         onClick={() => setPaymentMethod('paystack_card')}
                       >
-                        <div className="flex  gap-x-5">
-                          <div className="text-2xl mb-2">💳</div>
-                          <div className="flex flex-col items-start ">
+                        {paymentMethod === 'paystack_card' && (
+                          <FiCheckCircle className="absolute top-3 right-3 h-4 w-4 text-blue-600" />
+                        )}
+                        <div className="flex gap-x-4">
+                          <div className={`text-2xl mb-2 ${paymentMethod === 'paystack_card' ? 'text-blue-600' : 'text-gray-500'}`}>
+                            <FiCreditCard />
+                          </div>
+                          <div className="flex flex-col items-start">
                             <div className="font-medium">Card</div>
-                            <div className="text-sm text-gray-500">Visa/Mastercard</div>
+                            <div className="text-sm text-gray-500">Secure online card payment</div>
                           </div>
                         </div>
+                        {paymentMethod === 'paystack_card' && (
+                          <div className="mt-3">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                            <input 
+                              className="input w-full max-w-sm" 
+                              placeholder="email@example.com" 
+                              value={payerEmail} 
+                              onChange={(e) => setPayerEmail(e.target.value)} 
+                            />
+                          </div>
+                        )}
                       </button>
                     </div>
-
-                    {paymentMethod === 'mpesa_stk' && (
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-                        <input 
-                          className="input w-full max-w-sm" 
-                          placeholder="2547XXXXXXXX" 
-                          value={payerPhone} 
-                          onChange={(e) => setPayerPhone(e.target.value)} 
-                        />
-                      </div>
-                    )}
-                    
-                    {paymentMethod === 'paystack_card' && (
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
-                        <input 
-                          className="input w-full max-w-sm" 
-                          placeholder="email@example.com" 
-                          value={payerEmail} 
-                          onChange={(e) => setPayerEmail(e.target.value)} 
-                        />
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -770,9 +841,7 @@ const Checkout = () => {
           {currentStepKey === 'summary' && (
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-sm font-medium">
-                  {activeSteps.length}
-                </div>
+                <FiList className="text-primary" />
                 <h2 className="text-xl font-semibold text-gray-800">Summary</h2>
               </div>
 
@@ -782,7 +851,7 @@ const Checkout = () => {
                   <div className="flex items-center gap-2">
                     
                     <span className="font-medium text-gray-800 flex items-center gap-2">
-                      <FiList className="text-gray-600" /> Order Items
+                      <FiList className="text-primary" /> Order Items
                     </span>
                   </div>
                 </div>
@@ -808,15 +877,23 @@ const Checkout = () => {
                   <div className="flex items-center gap-2">
                     
                     <span className="font-medium text-gray-800 flex items-center gap-2">
-                      <FiShoppingBag className="text-gray-600" /> Fulfillment
+                      <FiShoppingBag className="text-primary" /> Fulfillment
                     </span>
                   </div>
                   <button onClick={() => gotoStep('orderType')} className="text-gray-400 hover:text-gray-600">
                     <FiEdit2 className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="text-sm text-gray-600">
-                  Method: <span className="font-medium capitalize">{orderType}</span>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  {orderType === 'delivery' ? (
+                    <FiTruck className="text-primary h-4 w-4" />
+                  ) : (
+                    <FiPackage className="text-primary h-4 w-4" />
+                  )}
+                  <span>
+                    Method:{' '}
+                    <span className="font-medium capitalize">{orderType}</span>
+                  </span>
                 </div>
               </div>
 
@@ -826,15 +903,23 @@ const Checkout = () => {
                   <div className="flex items-center gap-2">
                     
                     <span className="font-medium text-gray-800 flex items-center gap-2">
-                      <FiClock className="text-gray-600" /> Timing
+                      <FiClock className="text-primary" /> Timing
                     </span>
                   </div>
                   <button onClick={() => gotoStep('timing')} className="text-gray-400 hover:text-gray-600">
                     <FiEdit2 className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="text-sm text-gray-600">
-                  When: <span className="font-medium">{timing.isScheduled ? `Scheduled for ${new Date(timing.scheduledAt).toLocaleString()}` : 'Order now (30-45 mins)'}</span>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <FiClock className="h-4 w-4 text-primary" />
+                  <span>
+                    When:{' '}
+                    <span className="font-medium">
+                      {timing.isScheduled
+                        ? `Scheduled for ${new Date(timing.scheduledAt).toLocaleString()}`
+                        : 'Order now (30-45 mins)'}
+                    </span>
+                  </span>
                 </div>
               </div>
 
@@ -845,15 +930,21 @@ const Checkout = () => {
                     <div className="flex items-center gap-2">
                       
                       <span className="font-medium text-gray-800 flex items-center gap-2">
-                        <FiList className="text-gray-600" /> Packaging
+                        <FiPackage className="text-primary" /> Packaging
                       </span>
                     </div>
                     <button onClick={() => gotoStep('packaging')} className="text-gray-400 hover:text-gray-600">
                       <FiEdit2 className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    Selected: <span className="font-medium">{packagingOptions.find(p => p._id === selectedPackagingId)?.name || 'Standard'}</span>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <FiPackage className="h-4 w-4 text-primary" />
+                    <span>
+                      Selected:{' '}
+                      <span className="font-medium">
+                        {packagingOptions.find(p => p._id === selectedPackagingId)?.name || 'Standard'}
+                      </span>
+                    </span>
                   </div>
                 </div>
               )}
@@ -864,52 +955,86 @@ const Checkout = () => {
                   <div className="flex items-center gap-2">
                     
                     <span className="font-medium text-gray-800 flex items-center gap-2">
-                      <FiCreditCard className="text-gray-600" /> Payment Method
+                      <FiCreditCard className="text-primary" /> Payment Method
                     </span>
                   </div>
                   <button onClick={() => gotoStep('payment')} className="text-gray-400 hover:text-gray-600">
                     <FiEdit2 className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="text-sm text-gray-600">
-                  Method: <span className="font-medium capitalize">{paymentMode === 'post_to_bill' ? 'Post to Bill' : paymentMode === 'pay_now' ? (paymentMethod === 'cash' ? 'Cash' : paymentMethod === 'mpesa_stk' ? 'M-Pesa' : paymentMethod === 'paystack_card' ? 'Card' : 'Not selected') : 'Not selected'}</span>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <FiCreditCard className="h-4 w-4 text-primary" />
+                  <span>
+                    Method:{' '}
+                    <span className="font-medium capitalize">
+                      {paymentMode === 'post_to_bill'
+                        ? 'Post to Bill'
+                        : paymentMode === 'pay_now'
+                          ? paymentMethod === 'cash'
+                            ? 'Cash'
+                            : paymentMethod === 'mpesa_stk'
+                              ? 'M-Pesa'
+                              : paymentMethod === 'paystack_card'
+                                ? 'Card'
+                                : 'Not selected'
+                          : 'Not selected'}
+                    </span>
+                  </span>
                 </div>
                 {paymentMode === 'pay_now' && paymentMethod === 'mpesa_stk' && payerPhone && (
-                  <div className="text-sm text-gray-600 mt-1">Phone: <span className="font-medium">{payerPhone}</span></div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                    <FiSmartphone className="h-4 w-4 text-primary" />
+                    <span>
+                      Phone: <span className="font-medium">{payerPhone}</span>
+                    </span>
+                  </div>
                 )}
                 {paymentMode === 'pay_now' && paymentMethod === 'paystack_card' && payerEmail && (
-                  <div className="text-sm text-gray-600 mt-1">Email: <span className="font-medium">{payerEmail}</span></div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                    <FiMail className="h-4 w-4 text-primary" />
+                    <span>
+                      Email: <span className="font-medium">{payerEmail}</span>
+                    </span>
+                  </div>
                 )}
               </div>
 
               {/* Price Breakdown */}
               <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    
-                    <span className="font-medium text-gray-800">Price Breakdown</span>
-                  </div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <FiDollarSign className="text-primary" />
+                      <span className="font-medium text-gray-800">Price Breakdown</span>
+                    </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="text-gray-600 flex items-center gap-1">
+                      <FiList className="h-3 w-3 text-gray-500" /> Subtotal:
+                    </span>
                     <span className="font-medium">KES {totals.subtotal.toFixed(0)}</span>
                   </div>
                   <hr className="my-2" />
                   {canShowPackaging && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Packaging:</span>
+                      <span className="text-gray-600 flex items-center gap-1">
+                        <FiPackage className="h-3 w-3 text-gray-500" /> Packaging:
+                      </span>
                       <span className="font-medium">KES {Number(totals.packagingFee || 0).toFixed(0)}</span>
                     </div>
                   )}
                   {coupon?.code && (
                     <div className="flex justify-between text-sm text-green-700">
-                      <span>Coupon ({coupon.code}):</span>
+                      <span className="flex items-center gap-1">
+                        <FiTag className="h-3 w-3" /> Coupon ({coupon.code}):
+                      </span>
                       <span>- KES {Number(totals.discount || 0).toFixed(0)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-base font-semibold mt-2">
-                    <span>Total:</span>
+                    <span className="flex items-center gap-1">
+                      <FiDollarSign className="h-4 w-4 text-primary" /> Total:
+                    </span>
                     <span>KES {totals.total.toFixed(0)}</span>
                   </div>
                 </div>
@@ -924,9 +1049,7 @@ const Checkout = () => {
             className="btn-outline flex items-center gap-2" 
             onClick={() => currentStep === 0 ? navigate('/cart') : back()}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            <FiArrowLeft className="w-4 h-4" />
             Back
           </button>
 
@@ -936,29 +1059,22 @@ const Checkout = () => {
               onClick={next}
             >
               Next
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+              <FiArrowRight className="w-4 h-4" />
             </button>
           ) : (
             <button 
               className="btn-primary flex items-center gap-2" 
               onClick={handleCompleteOrder} 
-              disabled={creating || paying}
+              disabled={creating || paying || createOrderMutation.isPending || payInvoice.isPending}
             >
-              {creating || paying ? (
+              {creating || paying || createOrderMutation.isPending || payInvoice.isPending ? (
                 <>
-                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
+                  <FiLoader className="w-4 h-4 animate-spin" />
                   Processing...
                 </>
               ) : (
                 <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
+                  <FiCheck className="w-4 h-4" />
                   Complete Order
                 </>
               )}
