@@ -30,8 +30,8 @@ const Coupons = () => {
 
     const deleteCouponMutation = useDeleteCoupon()
 
-    const coupons = couponsData?.data?.data?.coupons || []
-    const pagination = couponsData?.data?.data?.pagination
+    const coupons = couponsData?.data?.coupons || []
+    const pagination = couponsData?.data?.pagination
 
 
 
@@ -69,9 +69,8 @@ const Coupons = () => {
             await deleteCouponMutation.mutateAsync(deleteModal.couponId)
             setDeleteModal({ show: false, couponId: null })
             refetch()
-            toast.success('Coupon deleted successfully')
         } catch {
-            toast.error('Failed to delete coupon')
+            // Error is handled by the mutation hook's onError
         }
     }
 
@@ -91,7 +90,8 @@ const Coupons = () => {
             refetch()
             toast.success(`${selectedCoupons.length} coupons deleted successfully`)
         } catch {
-            toast.error('Failed to delete some coupons')
+            // Individual errors are handled by the hook, 
+            // but we could add a summary toast here if needed.
         }
     }
 

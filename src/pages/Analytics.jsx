@@ -15,10 +15,10 @@ const Analytics = () => {
     const [range, setRange] = useState('30d')
     const { data: analytics, isLoading } = useAnalytics({ range })
 
-    const ordersSeries = analytics.ordersSeries || []
-    const revenueSeries = analytics.revenueSeries || []
-    const customersSeries = analytics.customersSeries || []
-    const topProducts = analytics.topProducts || []
+    const ordersSeries = analytics?.ordersSeries || []
+    const revenueSeries = analytics?.revenueSeries || []
+    const customersSeries = analytics?.customersSeries || []
+    const topProducts = analytics?.topProducts || []
 
     const ordersData = ordersSeries.map(p => ({ date: p._id, value: p.count }))
     const revenueData = revenueSeries.map(p => ({ date: p._id, value: p.amount }))

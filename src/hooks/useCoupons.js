@@ -52,7 +52,7 @@ export const useCreateCoupon = () => {
             const response = await couponAPI.createCoupon(couponData)
             return response.data
         },
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['coupons'] })
             toast.success('Coupon created successfully')
             return data
@@ -95,7 +95,7 @@ export const useDeleteCoupon = () => {
             const response = await couponAPI.deleteCoupon(couponId)
             return response.data
         },
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['coupons'] })
             toast.success('Coupon deleted successfully')
             return data
@@ -139,7 +139,7 @@ export const useApplyCoupon = () => {
             const response = await couponAPI.applyCoupon(code, orderAmount)
             return response.data
         },
-        onSuccess: () => {
+        onSuccess: (data) => {
             toast.success('Coupon applied successfully')
             return data
         },

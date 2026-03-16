@@ -40,8 +40,8 @@ const EditCoupon = () => {
 
     // Load coupon data when available
     useEffect(() => {
-        if (couponData?.data?.data) {
-            const coupon = couponData.data.data
+        if (couponData?.data) {
+            const coupon = couponData.data
             setFormData({
                 name: coupon.name || '',
                 description: coupon.description || '',
@@ -142,10 +142,9 @@ const EditCoupon = () => {
             }
 
             await updateCouponMutation.mutateAsync({ couponId, couponData })
-            toast.success('Coupon updated successfully')
             navigate('/coupons')
         } catch (error) {
-            toast.error('Failed to update coupon')
+            // Error is handled by the mutation hook's onError
         }
     }
 

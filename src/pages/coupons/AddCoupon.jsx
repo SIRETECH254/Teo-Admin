@@ -108,10 +108,9 @@ const AddCoupon = () => {
             }
 
             await createCouponMutation.mutateAsync(couponData)
-            toast.success('Coupon created successfully')
             navigate('/coupons')
         } catch {
-            toast.error('Failed to create coupon')
+            // Error is handled by the mutation hook's onError
         }
     }
 
