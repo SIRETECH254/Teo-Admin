@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useGetActivePackagingPublic } from '../hooks/usePackaging'
-import { useGetCart } from '../hooks/useCart'
-import { useCreateOrder } from '../hooks/useOrders'
+import { useGetCart, useClearCart } from '../hooks/useCart'
+import { useCreateOrder, useCreateAdminOrder } from '../hooks/useOrders'
 import { usePayInvoice } from '../hooks/usePayments'
+import { useGetUsers } from '../hooks/useUsers'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 import {
@@ -25,10 +26,16 @@ import {
   FiInfo,
   FiCheck,
   FiLoader,
+  FiUser,
+  FiSearch,
+  FiX,
+  FiMail,
+  FiTag,
 } from 'react-icons/fi'
 
 
 const ALL_STEPS = [
+  { key: 'customer', label: 'Customer' },
   { key: 'location', label: 'Location' },
   { key: 'orderType', label: 'Order Type' },
   { key: 'packaging', label: 'Packaging' },
@@ -51,6 +58,28 @@ const Checkout = () => {
   const payInvoice = usePayInvoice()
   const [creating, setCreating] = useState(false)
   const [paying, setPaying] = useState(false)
+
+  // Customer selection state
+  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [debouncedCustomerSearch, setDebouncedCustomerSearch] = useState('')
+  
+  // Debounce customer search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedCustomerSearch(customerSearch)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [customerSearch])
+
+  const { data: usersData, isLoading: usersLoading } = useGetUsers({ 
+    search: debouncedCustomerSearch,
+    limit: 10 
+  })
+  
+  const customers = useMemo(() => usersData?.data?.users || [], [usersData])
+  const createAdminOrderMutation = useCreateAdminOrder()
+  const clearCartMutation = useClearCart()
 
   // Form state
   const [location, setLocation] = useState('in_shop')
@@ -266,7 +295,19 @@ const Checkout = () => {
     try {
       setCreating(true)
 
+      if (!selectedCustomer) {
+        throw new Error('Please select a customer first')
+      }
+
+      const items = (cart?.items || []).map(item => ({
+        productId: item.productId?._id || item.productId,
+        skuId: item.skuId || item.variantId || item._id, // Fallback to various ID fields
+        quantity: item.quantity
+      }))
+
       const payload = {
+        customerId: selectedCustomer._id || selectedCustomer.id,
+        items,
         location,
         type: orderType,
         timing,
@@ -277,11 +318,10 @@ const Checkout = () => {
         },
         packagingOptionId: canShowPackaging ? selectedPackagingId : null,
         couponCode: coupon?.code || null,
-        cartId: null,
         metadata: {},
       }
 
-      const res = await createOrderMutation.mutateAsync(payload)
+      const res = await createAdminOrderMutation.mutateAsync(payload)
       const createdOrderId = res?.orderId
       const createdInvoiceId = res?.invoiceId
       
@@ -294,10 +334,17 @@ const Checkout = () => {
       } catch (e) {
         console.warn('Failed to clear applied coupon:', e)
       }
+
+      // Clear cart after successful admin order
+      try {
+        await clearCartMutation.mutateAsync()
+      } catch (e) {
+        console.warn('Failed to clear cart:', e)
+      }
       
       return { orderId: createdOrderId, invoiceId: createdInvoiceId }
     } catch (e) {
-      toast.error(e?.response?.data?.message || 'Failed to create order')
+      toast.error(e?.response?.data?.message || e.message || 'Failed to create order')
       throw e
     } finally {
       setCreating(false)
@@ -362,88 +409,42 @@ const Checkout = () => {
 
 
   const handleCompleteOrder = async () => {
-    // Handle Cash and Post-to-Bill (order creation with instant navigation)
-    if (paymentMode === 'post_to_bill' || (paymentMode === 'pay_now' && paymentMethod === 'cash')) {
-      try {
-        setCreating(true)
-        
-        const payload = {
-          location,
-          type: orderType,
-          timing,
-          addressId: canShowAddress ? addressId : null,
-          paymentPreference: {
-            mode: paymentMode,
-            method: paymentMode === 'pay_now' ? paymentMethod : null,
-          },
-          packagingOptionId: canShowPackaging ? selectedPackagingId : null,
-          couponCode: coupon?.code || null,
-          cartId: null,
-          metadata: {},
-        }
+    let ensuredOrderId = orderId
+    let ensuredInvoiceId = invoiceId
 
-        // Save checkout data to localStorage for retry functionality
+    // 1. Create order if not exists
+    if (!ensuredOrderId || !ensuredInvoiceId) {
         try {
-          localStorage.setItem('checkoutData', JSON.stringify({
-            payload,
-            method: paymentMode === 'post_to_bill' ? 'post_to_bill' : 'cash'
-          }))
+            const res = await createOrder()
+            ensuredOrderId = res.orderId
+            ensuredInvoiceId = res.invoiceId
         } catch (e) {
-          console.warn('Failed to save checkout data:', e)
+            // Error already handled/toasted in createOrder
+            return
         }
-
-        const res = await createOrderMutation.mutateAsync(payload)
-        const createdOrderId = res?.orderId
-        const createdInvoiceId = res?.invoiceId
-        
-        // Clear applied coupon from localStorage
-        try {
-          localStorage.removeItem('appliedCoupon')
-        } catch (e) {
-          console.warn('Failed to clear applied coupon:', e)
-        }
-        
-        // Navigate to payment status with method parameter
-        const method = paymentMode === 'post_to_bill' ? 'post_to_bill' : 'cash'
-        const params = new URLSearchParams({
-          method: method,
-          orderId: createdOrderId,
-          invoiceId: createdInvoiceId
-        })
-        navigate(`/payment-status?${params.toString()}`)
-        
-      } catch (error) {
-        // Order creation failed - navigate to payment status with error indication
-        const method = paymentMode === 'post_to_bill' ? 'post_to_bill' : 'cash'
-        const params = new URLSearchParams({
-          method: method,
-          error: error?.response?.data?.message || 'Failed to create order'
-        })
-        navigate(`/payment-status?${params.toString()}`)
-      } finally {
-        setCreating(false)
-      }
-      return
     }
 
-    // Handle M-Pesa and Paystack (order creation first, then payment initiation)
+    // 2. Handle Navigation / Payment
+    // Handle Cash and Post-to-Bill (instant navigation)
+    if (paymentMode === 'post_to_bill' || (paymentMode === 'pay_now' && paymentMethod === 'cash')) {
+        const method = paymentMode === 'post_to_bill' ? 'post_to_bill' : 'cash'
+        const params = new URLSearchParams({
+          method: method,
+          orderId: ensuredOrderId,
+          invoiceId: ensuredInvoiceId
+        })
+        navigate(`/payment-status?${params.toString()}`)
+        return
+    }
+
+    // Handle M-Pesa and Paystack (payment initiation)
     if (paymentMode === 'pay_now' && (paymentMethod === 'mpesa_stk' || paymentMethod === 'paystack_card')) {
-      let ensuredOrderId = orderId
-      let ensuredInvoiceId = invoiceId
-
       try {
-        if (!ensuredOrderId || !ensuredInvoiceId) {
-          const created = await createOrder()
-          ensuredOrderId = created?.orderId
-          ensuredInvoiceId = created?.invoiceId
-        }
-
         console.log('✅ handleCompleteOrder - Order IDs:', { ensuredOrderId, ensuredInvoiceId })
-
         // Initiate payment
         await payInvoiceNow(ensuredInvoiceId, ensuredOrderId)
       } catch (error) {
-        console.error('Checkout failed:', error)
+        console.error('Checkout payment failed:', error)
         // If order was created but payment failed, go to order details page
         if (ensuredOrderId) {
           navigate(`/orders/${ensuredOrderId}`)
@@ -478,6 +479,104 @@ const Checkout = () => {
 
         {/* Step content */}
         <div className="">
+          {/* STEP 0: Customer */}
+          {currentStepKey === 'customer' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800">Select Customer</h3>
+              
+              {/* Search */}
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <input
+                  type="text"
+                  placeholder="Search customer by name or email..."
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                  autoFocus
+                />
+                {customerSearch && (
+                  <button
+                    onClick={() => {
+                        setCustomerSearch('')
+                        setSelectedCustomer(null)
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <FiX className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Selected Customer Preview */}
+              {selectedCustomer && (
+                <div className="bg-primary/5 border border-primary rounded-lg p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                            {(selectedCustomer.name || selectedCustomer.email || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <div className="font-medium text-gray-900">{selectedCustomer.name || 'No Name'}</div>
+                            <div className="text-sm text-gray-600">{selectedCustomer.email}</div>
+                            {selectedCustomer.phone && (
+                                <div className="text-xs text-gray-500">{selectedCustomer.phone}</div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-1 rounded-full">Selected</span>
+                    </div>
+                </div>
+              )}
+
+              {/* Search Results */}
+              {debouncedCustomerSearch && (
+                  <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100 max-h-60 overflow-y-auto">
+                    {usersLoading ? (
+                        <div className="p-4 text-center text-gray-500">Loading...</div>
+                    ) : customers.length > 0 ? (
+                        customers.map((customer) => (
+                            <button
+                                key={customer._id}
+                                onClick={() => {
+                                    setSelectedCustomer(customer)
+                                    // Auto-fill contact info if paying now
+                                    if (customer.phone) setPayerPhone(formatPhoneForMpesa(customer.phone))
+                                    if (customer.email) setPayerEmail(customer.email)
+                                }}
+                                className={`w-full text-left p-3 hover:bg-gray-50 transition-colors flex items-center justify-between ${
+                                    selectedCustomer?._id === customer._id ? 'bg-primary/5' : ''
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xs font-bold">
+                                        {(customer.name || customer.email || 'U').charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <div className="font-medium text-gray-900 text-sm">{customer.name || 'No Name'}</div>
+                                        <div className="text-xs text-gray-500">{customer.email}</div>
+                                    </div>
+                                </div>
+                                {selectedCustomer?._id === customer._id && (
+                                    <FiCheck className="text-primary h-4 w-4" />
+                                )}
+                            </button>
+                        ))
+                    ) : (
+                        <div className="p-4 text-center text-gray-500 text-sm">No customers found.</div>
+                    )}
+                  </div>
+              )}
+              
+              {!debouncedCustomerSearch && !selectedCustomer && (
+                  <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                      <FiUser className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Search for a customer to begin</p>
+                  </div>
+              )}
+            </div>
+          )}
+
           {/* STEP 0: Location */}
           {currentStepKey === 'location' && (
             <div className="space-y-4">
@@ -845,6 +944,31 @@ const Checkout = () => {
                 <h2 className="text-xl font-semibold text-gray-800">Summary</h2>
               </div>
 
+              {/* Selected Customer */}
+              {selectedCustomer && (
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-gray-800 flex items-center gap-2">
+                                <FiUser className="text-primary" /> Selected Customer
+                            </span>
+                        </div>
+                        <button onClick={() => gotoStep('customer')} className="text-gray-400 hover:text-gray-600">
+                            <FiEdit2 className="w-4 h-4" />
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold">
+                            {(selectedCustomer.name || selectedCustomer.email || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <div className="font-medium text-gray-900">{selectedCustomer.name || 'No Name'}</div>
+                            <div className="text-sm text-gray-500">{selectedCustomer.email}</div>
+                        </div>
+                    </div>
+                </div>
+              )}
+
               {/* Order Items (no edit) */}
               <div className="bg-gray-50 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
@@ -1057,6 +1181,7 @@ const Checkout = () => {
             <button 
               className="btn-primary flex items-center gap-2" 
               onClick={next}
+              disabled={currentStepKey === 'customer' && !selectedCustomer}
             >
               Next
               <FiArrowRight className="w-4 h-4" />
@@ -1065,9 +1190,9 @@ const Checkout = () => {
             <button 
               className="btn-primary flex items-center gap-2" 
               onClick={handleCompleteOrder} 
-              disabled={creating || paying || createOrderMutation.isPending || payInvoice.isPending}
+              disabled={creating || paying || createAdminOrderMutation.isPending || payInvoice.isPending}
             >
-              {creating || paying || createOrderMutation.isPending || payInvoice.isPending ? (
+              {creating || paying || createAdminOrderMutation.isPending || payInvoice.isPending ? (
                 <>
                   <FiLoader className="w-4 h-4 animate-spin" />
                   Processing...

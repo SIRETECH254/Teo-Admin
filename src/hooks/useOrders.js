@@ -53,6 +53,26 @@ export const useCreateOrder = () => {
     })
 }
 
+// Create order (Admin)
+export const useCreateAdminOrder = () => {
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: async (payload) => {
+            const res = await orderAPI.createAdminOrder(payload)
+            return res.data?.data
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['orders'] })
+            queryClient.invalidateQueries({ queryKey: ['cart'] })
+        },
+        onError: (error) => {
+            console.error('Error creating admin order:', error)
+            toast.error(error?.response?.data?.message || 'Failed to create admin order')
+        }
+    })
+}
+
 // Update order status
 export const useUpdateOrderStatus = () => {
     const queryClient = useQueryClient()

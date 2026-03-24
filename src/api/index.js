@@ -314,6 +314,9 @@ export const orderAPI = {
     // Create a new order
     createOrder: (payload) => api.post('api/orders', payload),
 
+    // Create a new order (Admin)
+    createAdminOrder: (payload) => api.post('api/orders/admin/create', payload),
+
     // Get all orders
     getOrders: (params) => api.get('api/orders', { params }),
 
