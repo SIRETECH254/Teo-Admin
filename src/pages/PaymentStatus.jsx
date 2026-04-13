@@ -67,15 +67,17 @@ const PaymentStatus = () => {
     clearPaymentTimers();
     
     // Explicitly convert to number and handle null/undefined/string/number
-   // Ensure we handle string codes from API (e.g., "0")
-   const code = resultCode === 'string' ? parseInt(resultCode, 10) : resultCode;
+    // We use Number() but carefully handle null/undefined to avoid converting them to 0
+    const code = (resultCode !== null && resultCode !== undefined) ? Number(resultCode) : resultCode;
+
+    // Direct check for success code (0) to avoid any switch statement issues
+    if (code === 0) {
+      setSocketStatus('SUCCESS');
+      toast.success('Payment received successfully!');
+      return;
+    }
 
     switch (code) {
-      case 0:
-        setSocketStatus('SUCCESS');
-        toast.success('Payment received successfully!');
-        break;
-      
       case 1032:
         setSocketStatus('CANCELLED');
         setSocketError(resultMessage || 'Payment cancelled by user');
@@ -162,8 +164,16 @@ const PaymentStatus = () => {
 
     socketRef.current.on('callback.received', (payload) => {
       console.log('callback.received', payload);
-      handleMpesaResultCode(payload.code, payload.message);
+      
+      // Robustly extract data even if payload is an array or nested
+      const data = (payload && typeof payload === 'object') 
+        ? (Array.isArray(payload) ? (typeof payload[0] === 'string' ? payload[1] : payload[0]) : payload)
+        : {};
 
+      const code = data?.code ?? data?.CODE ?? data?.resultCode ?? data?.ResultCode;
+      const message = data?.message ?? data?.resultDesc ?? data?.ResultDesc;
+
+      handleMpesaResultCode(code, message);
     });
 
     socketRef.current.on('payment.updated', (payload) => {
@@ -452,7 +462,7 @@ const PaymentStatus = () => {
               </button>
             </>
           ) : (
-            <button 
+              <button 
               onClick={() => navigate(`/orders/${orderId}`)} 
               className="btn-secondary w-full py-4"
             >
