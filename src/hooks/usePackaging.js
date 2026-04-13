@@ -40,7 +40,6 @@ export const useCreatePackaging = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['packaging'] })
             toast.success('Packaging option created')
-            return data
         },
         onError: (error) => {
             toast.error(error.response?.data?.message || 'Failed to create packaging option')
@@ -60,7 +59,6 @@ export const useUpdatePackaging = () => {
             queryClient.invalidateQueries({ queryKey: ['packaging'] })
             queryClient.invalidateQueries({ queryKey: ['packaging', variables.id] })
             toast.success('Packaging option updated')
-            return data
         },
         onError: (error) => {
             toast.error(error.response?.data?.message || 'Failed to update packaging option')
@@ -79,7 +77,6 @@ export const useDeletePackaging = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['packaging'] })
             toast.success('Packaging option deleted')
-            return data
         },
         onError: (error) => {
             toast.error(error.response?.data?.message || 'Failed to delete packaging option')
@@ -98,7 +95,6 @@ export const useSetDefaultPackaging = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['packaging'] })
             toast.success('Default packaging updated')
-            return data
         },
         onError: (error) => {
             toast.error(error.response?.data?.message || 'Failed to set default packaging')

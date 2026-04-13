@@ -27,11 +27,17 @@ const EditPackaging = () => {
 
   const isValid = name.trim().length > 0 && Number(price) >= 0
 
-  const onSubmit = async (e) => {
+  const onSubmit = (e) => {
     e.preventDefault()
     if (!isValid) return
-    await updateMutation.mutateAsync({ id, data: { name, price: Number(price), isActive, isDefault } })
-    navigate('/packaging')
+    updateMutation.mutate(
+      { id, data: { name, price: Number(price), isActive, isDefault } },
+      {
+        onSuccess: () => {
+          navigate('/packaging')
+        }
+      }
+    )
   }
 
   if (isLoading) {
