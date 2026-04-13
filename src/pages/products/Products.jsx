@@ -413,11 +413,11 @@ const Products = () => {
                                     </td>
                                     <td className="table-cell-text">
                                         <div className="text-sm text-gray-900">
-                                            KES {product.basePrice?.toLocaleString() || '0'}
+                                            KES {product.comparePrice?.toLocaleString() || product.basePrice?.toLocaleString() || '0'}
                                         </div>
                                         {product.comparePrice && (
                                             <div className="text-xs text-gray-500 line-through">
-                                                KES {product.comparePrice.toLocaleString()}
+                                                KES {product.basePrice.toLocaleString()}
                                             </div>
                                         )}
                                     </td>

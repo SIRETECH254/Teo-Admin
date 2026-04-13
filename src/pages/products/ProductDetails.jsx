@@ -397,12 +397,16 @@ const ProductDetails = () => {
                                 <div className="space-y-2">
                                     <div className="flex items-center space-x-2">
                                         <FiDollarSign className="h-5 w-5 text-gray-600" />
+                                        {/* Main Price: Use SKU comparePrice, else Product comparePrice, else SKU price, else Product basePrice */}
                                         <span className="text-2xl font-bold text-gray-900">
-                                            {selectedSKU?.price?.toLocaleString() || product.basePrice?.toLocaleString() || '0'}
+                                            {(selectedSKU?.comparePrice || product.comparePrice)?.toLocaleString() || 
+                                             (selectedSKU?.price || product.basePrice)?.toLocaleString() || '0'}
                                         </span>
-                                        {product.comparePrice && (
+                                        
+                                        {/* Original Price (Crossed out): Only show if we have a comparison price */}
+                                        {(selectedSKU?.comparePrice || product.comparePrice) && (
                                             <span className="text-lg text-gray-500 line-through">
-                                                {product.comparePrice.toLocaleString()}
+                                                {(selectedSKU?.price || product.basePrice)?.toLocaleString()}
                                             </span>
                                         )}
                                     </div>
