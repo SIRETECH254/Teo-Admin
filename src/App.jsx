@@ -37,11 +37,12 @@ import Inventory from './pages/inventory/Inventory'
 import Cart from './pages/Cart'
 import ProductDetailDemo from './components/demo/ProductDetailDemo'
 import Coupons from './pages/coupons/Coupons'
+import AddCoupon from './pages/coupons/AddCoupon'
+import EditCoupon from './pages/coupons/EditCoupon'
+import CouponDetail from './pages/coupons/CouponDetail'
 import Checkout from './pages/Checkout'
 import Orders from './pages/orders/Orders'
 import OrderDetail from './pages/orders/OrderDetail'
-import AddCoupon from './pages/coupons/AddCoupon'
-import EditCoupon from './pages/coupons/EditCoupon'
 import PaymentStatus from './pages/PaymentStatus'
 import Packaging from './pages/packaging/Packaging'
 import AddPackaging from './pages/packaging/AddPackaging'
@@ -116,6 +117,7 @@ function App() {
               <Route path="/products/:id/details" element={<ProductDetails />} />
               <Route path="/coupons" element={<Coupons />} />
               <Route path="/coupons/add" element={<AddCoupon />} />
+              <Route path="/coupons/:couponId" element={<CouponDetail />} />
               <Route path="/coupons/:couponId/edit" element={<EditCoupon />} />
               <Route path="/packaging" element={<Packaging />} />
               <Route path="/packaging/add" element={<AddPackaging />} />
