@@ -15,6 +15,7 @@ const Cart = () => {
 
     // Coupon functionality
     const validateCoupon = useValidateCoupon()
+    const applyCoupon = useApplyCoupon()
 
     // Coupon and modal state
     const [couponCode, setCouponCode] = useState('')
@@ -124,36 +125,49 @@ const Cart = () => {
         setIsApplyingCoupon(true)
 
         try {
-            const result = await validateCoupon.mutateAsync({
+            // First validate the coupon
+            const validateResult = await validateCoupon.mutateAsync({
                 code: couponCode.toUpperCase(),
                 orderAmount: calculateSubtotal
             })
 
-            if (result.data.success) {
+            if (validateResult?.data?.success || validateResult?.success) {
+                // Then apply the coupon
+                const applyResult = await applyCoupon.mutateAsync({
+                    code: couponCode.toUpperCase(),
+                    orderAmount: calculateSubtotal
+                })
 
-                const applied = {
-                    code: result.data.data.coupon.code,
-                    discountAmount: result.data.data.discountAmount,
-                    name: result.data.data.coupon.name,
-                    discountType: result.data.data.coupon.discountType,
-                    discountValue: result.data.data.coupon.discountValue
+                if (applyResult?.data?.success || applyResult?.success) {
+                    const responseData = applyResult.data?.data || applyResult.data || applyResult;
+                    const couponData = responseData.coupon || responseData;
+
+                    const applied = {
+                        code: couponData.code,
+                        discountAmount: responseData.discountAmount,
+                        name: couponData.name,
+                        discountType: couponData.discountType,
+                        discountValue: couponData.discountValue
+                    }
+                    
+                    setAppliedCoupon(applied)
+                    try { localStorage.setItem('appliedCoupon', JSON.stringify(applied)) } catch (e) { console.error('Storage error:', e) }
+                    // toast.success is already handled by useApplyCoupon hook's onSuccess
+                    setCouponCode('')
+                } else {
+                    toast.error(applyResult?.data?.message || applyResult?.message || 'Failed to apply coupon')
                 }
-                setAppliedCoupon(applied)
-                try { localStorage.setItem('appliedCoupon', JSON.stringify(applied)) } catch (e) { console.error('Storage error:', e) }
-                toast.success(`Coupon "${result.data.data.coupon.name}" applied successfully!`)
-                setCouponCode('')
-
             } else {
-                toast.error(result.data.message)
+                toast.error(validateResult?.data?.message || validateResult?.message || 'Invalid coupon code')
             }
             
         } catch (err) {
             console.error('Error applying coupon:', err)
-            toast.error('Failed to apply coupon. Please try again.')
+            // Error toast is handled by the hooks' onError
         } finally {
             setIsApplyingCoupon(false)
         }
-    }, [couponCode, validateCoupon, calculateSubtotal])
+    }, [couponCode, validateCoupon, applyCoupon, calculateSubtotal])
 
     const handleRemoveCoupon = useCallback(() => {
         setAppliedCoupon(null)
