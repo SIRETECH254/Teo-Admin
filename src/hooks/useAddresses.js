@@ -8,9 +8,26 @@ export const useGetAddresses = () => {
         queryKey: ['addresses'],
         queryFn: async () => {
             const res = await addressAPI.getUserAddresses()
-            const list = res?.data?.data?.addresses || res?.data || []
+            const data = res?.data?.data || res?.data
+            const list = data?.addresses || (Array.isArray(data) ? data : [])
             return list
         },
+        staleTime: 5 * 60 * 1000,
+        gcTime: 10 * 60 * 1000,
+    })
+}
+
+// Get addresses by User ID (Admin)
+export const useGetAddressesByUser = (userId) => {
+    return useQuery({
+        queryKey: ['addresses', 'user', userId],
+        queryFn: async () => {
+            const res = await addressAPI.getAllAddresses({ userId })
+            const data = res?.data?.data || res?.data
+            const list = data?.addresses || (Array.isArray(data) ? data : [])
+            return list
+        },
+        enabled: !!userId,
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
     })

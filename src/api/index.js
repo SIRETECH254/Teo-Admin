@@ -549,4 +549,12 @@ export const addressAPI = {
     
 }
 
+// Location API calls
+export const locationAPI = {
+
+    // Search for locations
+    searchLocations: (query) => api.get('api/locations/search', { params: { query } }),
+
+}
+
 export default api

@@ -1,63 +1,54 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FiSearch } from 'react-icons/fi'
-import api from '../../api'
+import { useSearchLocations } from '../../hooks/useLocations'
+import { useCreateAddress } from '../../hooks/useAddresses'
 
 
-const AddressAutocomplete = ({ onSaved }) => {
+const AddressAutocomplete = ({ onSaved, userId }) => {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [debouncedQuery, setDebouncedQuery] = useState('')
 
-  const fetchSuggestions = async (value) => {
-    setQuery(value)
-    if ((value || '').trim().length < 3) return
-    setLoading(true)
-    try {
-      const res = await fetch(
-        `https://api.locationiq.com/v1/autocomplete?key=${import.meta.env.VITE_LOCATIONIQ_TOKEN}&q=${encodeURIComponent(value)}&limit=5&countrycodes=ke`
-      )
-      const data = await res.json()
-      setResults(Array.isArray(data) ? data : [])
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false)
-    }
-  }
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [query])
 
-  const transformLocationIQ = (place) => ({
-    name: place.address?.name || place.display_name,
+  const { data: results = [], isLoading: loading } = useSearchLocations(debouncedQuery)
+  const { mutateAsync: createAddress } = useCreateAddress()
+
+  const transformLocation = (place) => ({
+    name: place.name || place.formatted_address,
     coordinates: {
-      lat: parseFloat(place.lat),
-      lng: parseFloat(place.lon),
+      lat: place.geometry?.location?.lat,
+      lng: place.geometry?.location?.lng,
     },
     regions: {
-      country: place.address?.country || 'Kenya',
-      locality: place.address?.city || place.address?.town || place.address?.village || null,
-      plus_code: place.address?.postcode || null,
-      political: place.address?.country || null,
-      sublocality: place.address?.suburb || null,
-      sublocality_level_1: place.address?.suburb || null,
-      administrative_area_level_1: place.address?.county || null,
+      country: 'Kenya',
+      locality: place.name || null,
+      plus_code: null,
+      political: null,
+      sublocality: null,
+      sublocality_level_1: null,
+      administrative_area_level_1: null,
     },
-    address: place.display_name,
+    address: place.formatted_address,
     details: null,
     isDefault: false,
+    userId: userId || null,
   })
 
   const handleSelectPlace = async (place) => {
     try {
-      const payload = transformLocationIQ(place)
-      const res = await api.post('/addresses', payload)
-      const created = res?.data?.data?.address || res?.data
-      // Clear local state BEFORE notifying parent (parent may unmount this component)
+      const payload = transformLocation(place)
+      const created = await createAddress(payload)
+      
+      // Clear local state BEFORE notifying parent
       setQuery('')
-      setResults([])
       if (onSaved) onSaved(created)
-    } catch {
-      // Keep silent fail-safe; parent handles toasts on onSaved success
-      // Optionally, you could add error handling here if desired
-      // console.error('Failed to save address from autocomplete:', e)
+    } catch (e) {
+      console.error('Failed to save address:', e)
     }
   }
 
@@ -67,7 +58,7 @@ const AddressAutocomplete = ({ onSaved }) => {
         type="text"
         placeholder="Search address..."
         value={query}
-        onChange={(e) => fetchSuggestions(e.target.value)}
+        onChange={(e) => setQuery(e.target.value)}
         className="input"
       />
       {loading && <div className="text-sm text-gray-500">Searching...</div>}
@@ -76,15 +67,16 @@ const AddressAutocomplete = ({ onSaved }) => {
           {results.map((place) => (
             <li
               key={place.place_id}
-              className="p-2 hover:bg-gray-50 cursor-pointer"
+              className="p-2 hover:bg-gray-50 cursor-pointer space-y-2"
               onClick={() => handleSelectPlace(place)}
             >
-              {place.display_name}
+              <div className="text-sm text-gray-700">{place.name}</div>
+              <div className="text-xs text-gray-500">{place.formatted_address}</div>
             </li>
           ))}
         </ul>
       ) : (
-        query.trim().length >= 3 && !loading && (
+        debouncedQuery.trim().length >= 3 && !loading && (
           <div className="border rounded-md p-6 flex items-center justify-center min-h-40">
             <div className="text-center">
               <div className="mx-auto mb-3 inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 text-gray-600">
@@ -104,4 +96,3 @@ const AddressAutocomplete = ({ onSaved }) => {
 
 
 export default AddressAutocomplete
-

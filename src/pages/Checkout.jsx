@@ -6,7 +6,9 @@ import { useGetCart, useClearCart } from '../hooks/useCart'
 import { useCreateOrder, useCreateAdminOrder } from '../hooks/useOrders'
 import { usePayInvoice } from '../hooks/usePayments'
 import { useGetUsers } from '../hooks/useUsers'
+import { useGetAddresses, useGetAddressesByUser } from '../hooks/useAddresses'
 import { useAuth } from '../contexts/AuthContext'
+import AddressAutocomplete from '../components/common/AddressAutocomplete'
 import toast from 'react-hot-toast'
 import {
   FiEdit2,
@@ -137,6 +139,22 @@ const Checkout = () => {
   
     const [selectedPackagingId, setSelectedPackagingId] = useState(null)
   
+    // Address fetching logic
+    const { data: customerAddresses = [], isLoading: addressesLoading } = useGetAddressesByUser(selectedCustomer?._id)
+
+    const selectedAddress = useMemo(() => {
+      if (!Array.isArray(customerAddresses)) return null
+      return customerAddresses.find(addr => (addr._id || addr.id) === addressId)
+    }, [customerAddresses, addressId])
+
+    // Auto-select default address
+    useEffect(() => {
+      if (customerAddresses.length > 0 && !addressId) {
+        const defaultAddr = customerAddresses.find(a => a.isDefault) || customerAddresses[0]
+        if (defaultAddr) setAddressId(defaultAddr._id || defaultAddr.id)
+      }
+    }, [customerAddresses, addressId])
+
     // Clear coupon if cart is empty
     useEffect(() => {
       const items = cart?.items || []
@@ -760,14 +778,52 @@ const Checkout = () => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-800">Delivery Address</h3>
               {canShowAddress ? (
-                <div className="space-y-3">
-                  <input 
-                    className="input" 
-                    placeholder="Enter your delivery address" 
-                    value={addressId || ''} 
-                    onChange={(e) => setAddressId(e.target.value)} 
-                  />
-                  <p className="text-sm text-gray-500">Enter the full address where you'd like your order delivered.</p>
+                <div className="space-y-6">
+                  {/* Search / Add New */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Search or Add New Address</label>
+                    <AddressAutocomplete 
+                        userId={selectedCustomer?._id} 
+                        onSaved={(newAddr) => setAddressId(newAddr._id || newAddr.id)} 
+                    />
+                  </div>
+
+                  {/* Existing Addresses */}
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-700">Select from Saved Addresses</label>
+                    {addressesLoading ? (
+                        <div className="text-sm text-gray-500">Loading addresses...</div>
+                    ) : customerAddresses.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {customerAddresses.map((addr) => (
+                                <button
+                                    key={addr._id || addr.id}
+                                    onClick={() => setAddressId(addr._id || addr.id)}
+                                    className={`text-left p-4 rounded-lg border-2 transition-all ${
+                                        addressId === (addr._id || addr.id)
+                                            ? 'border-primary bg-primary/5'
+                                            : 'border-gray-100 hover:border-gray-200'
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between mb-1">
+                                        <div className="font-medium text-gray-900 truncate pr-2">{addr.name}</div>
+                                        {addressId === (addr._id || addr.id) && (
+                                            <FiCheckCircle className="text-primary flex-shrink-0" />
+                                        )}
+                                    </div>
+                                    <div className="text-sm text-gray-600 line-clamp-2">{addr.address}</div>
+                                    {addr.isDefault && (
+                                        <span className="inline-flex mt-2 text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">DEFAULT</span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-lg border border-dashed border-gray-300 text-center">
+                            No saved addresses found. Search above to add one.
+                        </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -1019,6 +1075,13 @@ const Checkout = () => {
                     <span className="font-medium capitalize">{orderType}</span>
                   </span>
                 </div>
+                {orderType === 'delivery' && selectedAddress && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Delivery Address</div>
+                    <div className="text-sm text-gray-700 font-medium">{selectedAddress.name}</div>
+                    <div className="text-sm text-gray-600">{selectedAddress.address}</div>
+                  </div>
+                )}
               </div>
 
               {/* Timing */}
